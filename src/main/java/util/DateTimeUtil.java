@@ -18,7 +18,7 @@ public class DateTimeUtil {
      * @return LocalDateTime
      */
     public static LocalDateTime parseDateTime(String dateTimeString) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constant.ISO_DATE_TIME_FORMAT)
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constant.ISO_DATE_TIME_FORMAT)
                 .withZone(ZoneId.of(Constant.ZONE_UTC));
 
         LocalDateTime dateTime = null;
@@ -42,7 +42,7 @@ public class DateTimeUtil {
             return new ArrayList<>();
         }
 
-        List<String> dateTimeStrings = new ArrayList<>();
+        final List<String> dateTimeStrings = new ArrayList<>();
         LocalDateTime currentDateTime = LocalDateTime.from(dateTimeStart);
 
         // loop until dateTimeEnd
