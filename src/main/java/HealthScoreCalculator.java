@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import enums.GitHubEventType;
 import metric.AverageCommitHeathMetric;
+import metric.AverageIssueOpenedTimeHeathMetric;
 import model.GitHubEvent;
 import model.Repo;
 import util.DateTimeUtil;
@@ -36,7 +37,8 @@ public class HealthScoreCalculator {
         urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
 
         // process data
-        new AverageCommitHeathMetric().calculate();
+//        new AverageCommitHeathMetric().calculate();
+        new AverageIssueOpenedTimeHeathMetric().calculate();
 
         // delete files
     }

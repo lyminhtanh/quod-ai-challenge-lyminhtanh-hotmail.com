@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Data
 public class GitHubEvent {
@@ -16,6 +17,8 @@ public class GitHubEvent {
     private Repo repo;
 
     private Payload payload;
+
+    private LocalDateTime createdAt;
 
     public static GitHubEvent fromJson(String json){
         ObjectMapper objectMapper = new ObjectMapper();

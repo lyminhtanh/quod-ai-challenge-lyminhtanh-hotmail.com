@@ -1,15 +1,13 @@
 package enums;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import lombok.Getter;
 
-public enum GitHubEventType {
-    PUSH_EVENT("PushEvent"),
-    ISSUE_EVENT("IssueEvent");
+public enum IssueState {
+    OPEN("open");
 
     private String value;
 
-    private GitHubEventType(String value) {
+    private IssueState(String value) {
         this.value = value;
     }
 

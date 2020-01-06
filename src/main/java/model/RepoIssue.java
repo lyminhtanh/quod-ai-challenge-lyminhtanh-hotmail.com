@@ -5,8 +5,9 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class Repo {
-    private long id;
+public class RepoIssue {
 
-    private String name;
+    private long repoId;
+
+    private long issueId;
 }

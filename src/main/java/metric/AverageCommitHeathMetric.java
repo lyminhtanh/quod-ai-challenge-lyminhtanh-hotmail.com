@@ -1,5 +1,6 @@
 package metric;
 
+import constant.Constant;
 import enums.GitHubEventType;
 import model.GitHubEvent;
 import model.HealthScore;
@@ -27,15 +28,13 @@ public class AverageCommitHeathMetric implements HealthMetric {
 
         List<HealthScore> healthScores = calculateHealthScore(totalPush, lines);
 
-        System.out.println(String.format("totalPush: %s", totalPush));
-        System.out.println(healthScores);
-
         List<String[]> csvRows = healthScores.stream()
                 .map(this::toCsvRow)
                 .collect(Collectors.toList());
 
         try{
             FileUtil.createCSVFile(csvRows);
+            System.out.println(String.format("Exported result to: %s", Constant.OUTPUT_FILE_NAME));
         } catch (IOException ex){
 
         }

@@ -8,4 +8,8 @@ public class Payload {
 
     private int size;
 
+    private Issue issue;
+
+    private String action;
+
 }
