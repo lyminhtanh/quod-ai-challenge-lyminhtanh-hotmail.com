@@ -1,5 +1,9 @@
 package metric;
 
+import java.util.List;
+
+import model.HealthScore;
+
 public interface HealthMetric {
-    void calculate();
+  List<HealthScore> calculate();
 }

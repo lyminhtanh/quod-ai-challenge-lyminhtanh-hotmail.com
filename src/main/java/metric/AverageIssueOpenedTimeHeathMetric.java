@@ -1,19 +1,32 @@
 package metric;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.apache.commons.chain.Command;
+import org.apache.commons.chain.Context;
+
 import constant.Constant;
 import enums.Action;
 import enums.GitHubEventType;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import model.*;
+import lombok.NoArgsConstructor;
+import model.GitHubEvent;
+import model.HealthScore;
+import model.Issue;
+import model.Payload;
+import model.Repo;
+import model.RepoIssue;
 import util.FileUtil;
 import util.NormalizeUtil;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Average time that an issue remains opened
@@ -21,15 +34,22 @@ import java.util.stream.Collectors;
  */
 @Data
 @Builder
-public class AverageIssueOpenedTimeHeathMetric implements HealthMetric {
+@NoArgsConstructor
+@AllArgsConstructor
+public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command {
 
     private LocalDateTime dateTimeStart;
 
     private LocalDateTime dateTimeEnd;
 
+  @Override
+  public boolean execute(Context context) throws Exception {
+    // TODO Auto-generated method stub
+    return false;
+  }
 
-    @Override
-    public void calculate() {
+  @Override
+  public List<HealthScore> calculate() {
         List<String> lines = new ArrayList<>();
         for (String filePath : FileUtil.listJsonFiles()) {
             lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.ISSUE_EVENT));
@@ -60,16 +80,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric {
 
         NormalizeUtil.normalize(healthScores);
 
-        List<String[]> csvRows = healthScores.stream()
-                .map(this::toCsvRow)
-                .collect(Collectors.toList());
-
-        try {
-            FileUtil.createCSVFile(csvRows);
-            System.out.println(String.format("Exported result to: %s", Constant.OUTPUT_FILE_NAME));
-        } catch (IOException ex) {
-
-        }
+    return healthScores;
     }
 
     /**
@@ -117,7 +128,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric {
         return events.get(nonOpenedIndex).getCreatedAt();
 
     }
-    
+
     private boolean hasOpenedAction(List<GitHubEvent> events) {
         return events.stream()
                 .map(GitHubEvent::getPayload)
@@ -150,5 +161,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric {
         System.out.println(avgOpenTime + "____" + minOpenTime);
         return (double) avgOpenTime / minOpenTime;
     }
+
+
 
 }
