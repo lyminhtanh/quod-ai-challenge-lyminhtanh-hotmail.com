@@ -23,8 +23,8 @@ public class AverageCommitHeathMetric implements HealthMetric, Command {
 
   @Override
   public boolean execute(Context context) throws Exception {
-    HealthScoreContext healthScoreContext = (HealthScoreContext) context;
-
+    List<HealthScore> healthScores = calculate();
+    ((HealthScoreContext) context).getHealthScores().addAll(healthScores);
     return false;
   }
 
@@ -37,16 +37,6 @@ public class AverageCommitHeathMetric implements HealthMetric, Command {
     }
 
     return calculateHealthScore(lines);
-
-    // List<String[]> csvRows =
-    // healthScores.stream().map(HealthScore::toCsvRow).collect(Collectors.toList());
-    //
-    // try {
-    // FileUtil.createCSVFile(csvRows);
-    // System.out.println(String.format("Exported result to: %s", Constant.OUTPUT_FILE_NAME));
-    // } catch (IOException ex) {
-    //
-    // }
   }
 
   /**

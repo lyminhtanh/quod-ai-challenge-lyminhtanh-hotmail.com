@@ -21,6 +21,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import model.GitHubEvent;
 import model.HealthScore;
+import model.HealthScoreContext;
 import model.Issue;
 import model.Payload;
 import model.Repo;
@@ -38,13 +39,12 @@ import util.NormalizeUtil;
 @AllArgsConstructor
 public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command {
 
-    private LocalDateTime dateTimeStart;
-
-    private LocalDateTime dateTimeEnd;
+  private HealthScoreContext context;
 
   @Override
   public boolean execute(Context context) throws Exception {
-    // TODO Auto-generated method stub
+    this.context = (HealthScoreContext) context;
+    this.context.getHealthScores().addAll(calculate());
     return false;
   }
 
@@ -113,14 +113,14 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
         return duration.toMinutes();
     }
 
-    private LocalDateTime getNonOpenActionCreatedAt(List<GitHubEvent> events) {
+  private LocalDateTime getNonOpenActionCreatedAt(List<GitHubEvent> events) {
         boolean hasOpenAction = hasOpenedAction(events);
 
         int nonOpenedIndex = 0;
 
         if(hasOpenAction){
             if(events.size() == 1){
-                return this.dateTimeEnd.plusHours(1);
+        return this.context.getDateTimeEnd().plusHours(1);
             }
             nonOpenedIndex = 1;
         }
@@ -138,10 +138,6 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
 
     private RepoIssue buildRepoIssueKey(GitHubEvent event) {
         return new RepoIssue(event.getRepo().getId(), event.getPayload().getIssue().getId());
-    }
-
-    private String[] toCsvRow(HealthScore healthScore) {
-        return new String[]{healthScore.getRepo().getName(), String.valueOf(healthScore.getScore())};
     }
 
     /**

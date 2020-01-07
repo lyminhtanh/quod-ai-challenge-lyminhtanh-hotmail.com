@@ -1,51 +1,44 @@
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
-import enums.GitHubEventType;
-import metric.AverageCommitHeathMetric;
-import metric.AverageIssueOpenedTimeHeathMetric;
-import model.GitHubEvent;
-import model.Repo;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.apache.commons.chain.Command;
+
+import enums.Metric;
+import metric.MetricCatalog;
+import model.HealthScoreContext;
 import util.DateTimeUtil;
 import util.FileUtil;
 
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 public class HealthScoreCalculator {
-    public static void main(String[] args) {
-        // parse input
-        final LocalDateTime dateTimeStart = DateTimeUtil.parseDateTime(args[0]);
-        final LocalDateTime dateTimeEnd = DateTimeUtil.parseDateTime(args[1]);
+  public static void main(String[] args) {
+    // parse input
+    final LocalDateTime dateTimeStart = DateTimeUtil.parseDateTime(args[0]);
+    final LocalDateTime dateTimeEnd = DateTimeUtil.parseDateTime(args[1]);
 
-        // validate input
-        if (dateTimeStart == null || dateTimeEnd == null) {
-            System.out.println("Please input valid arguments");
-        }
-//
-//        // build list of dateTime string for valid urls
-        final List<String> urls = DateTimeUtil.buildDateTimeStringsFromInterval(dateTimeStart, dateTimeEnd);
-
-        // download data parallely
-        urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
-
-        // process data
-//        new AverageCommitHeathMetric().calculate();
-
-        AverageIssueOpenedTimeHeathMetric.builder()
-                .dateTimeStart(dateTimeStart)
-                .dateTimeEnd(dateTimeEnd)
-                .build()
-                .calculate();
-        // delete files
+    // validate input
+    if (dateTimeStart == null || dateTimeEnd == null) {
+      System.out.println("Please input valid arguments");
     }
+    //
+    // // build list of dateTime string for valid urls
+    final List<String> urls =
+        DateTimeUtil.buildDateTimeStringsFromInterval(dateTimeStart, dateTimeEnd);
+
+    // download data parallely
+    urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
+
+    // process data
+    try {
+      Command allMetricChain = new MetricCatalog().getCommand(Metric.all_metric.name());
+      allMetricChain.execute(HealthScoreContext.builder().dateTimeStart(dateTimeStart)
+          .dateTimeEnd(dateTimeEnd).build());
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+
+    // delete files
+  }
 
 
 }
