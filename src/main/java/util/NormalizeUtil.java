@@ -1,26 +1,36 @@
 package util;
 
-public class NormalizeUtil {
-    private final double dataHigh;
-    private final double dataLow;
-    private final double normalizedHigh;
-    private final double normalizedLow;
+import model.HealthScore;
 
-    public NormalizeUtil(double dataHigh, double dataLow, double normalizedHigh, double normalizedLow) {
-        this.dataHigh = dataHigh;
-        this.dataLow = dataLow;
-        this.normalizedHigh = normalizedHigh;
-        this.normalizedLow = normalizedLow;
+import java.util.List;
+
+public class NormalizeUtil {
+
+    /**
+     * normalize healthscores in range 0 and 1
+     * @param healthScores
+     */
+    public static void normalize(List<HealthScore> healthScores) {
+        final double dataHigh = healthScores.stream()
+                .mapToDouble(HealthScore::getScore)
+                .max()
+                .getAsDouble();
+
+        final double dataLow = healthScores.stream()
+                .mapToDouble(HealthScore::getScore)
+                .min()
+                .getAsDouble();
+
+        healthScores.forEach(healthScore -> healthScore.setScore(normalize(healthScore.getScore(), dataHigh, dataLow)));
     }
 
     /**
-     * Normalize x.
-     * @param x The value to be normalized.
+     * Normalize value.
+     * @param value The value to be normalized.
      * @return The result of the normalization.
      */
-    public double normalize(double x) {
-        return ((x - dataLow)
-                / (dataHigh - dataLow))
-                * (normalizedHigh - normalizedLow) + normalizedLow;
+    private static double normalize(double value, final double dataHigh, final double dataLow) {
+        return (value - dataLow)
+                / (dataHigh - dataLow);
     }
 }

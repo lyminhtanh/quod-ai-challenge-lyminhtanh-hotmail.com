@@ -1,5 +1,7 @@
 package model;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import jackson.CustomDateTimeDeserializer;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -11,5 +13,6 @@ public class Issue {
 
     private String state;
 
+    @JsonDeserialize(using = CustomDateTimeDeserializer.class)
     private LocalDateTime createdAt;
 }

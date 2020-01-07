@@ -3,7 +3,9 @@ package model;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import enums.GitHubEventType;
+import jackson.CustomDateTimeDeserializer;
 import lombok.Data;
 import lombok.Getter;
 
@@ -18,6 +20,7 @@ public class GitHubEvent {
 
     private Payload payload;
 
+    @JsonDeserialize(using = CustomDateTimeDeserializer.class)
     private LocalDateTime createdAt;
 
     public static GitHubEvent fromJson(String json){

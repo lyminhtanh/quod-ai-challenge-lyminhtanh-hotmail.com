@@ -2,12 +2,12 @@ package enums;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-public enum IssueState {
-    OPEN("open");
+public enum Action {
+    OPENED("opened");
 
     private String value;
 
-    private IssueState(String value) {
+    private Action(String value) {
         this.value = value;
     }
 

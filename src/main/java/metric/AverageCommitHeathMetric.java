@@ -19,20 +19,19 @@ public class AverageCommitHeathMetric implements HealthMetric {
 
     @Override
     public void calculate() {
-        long totalPush = 0;
         List<String> lines = new ArrayList<>();
+
         for (String filePath : FileUtil.listJsonFiles()) {
             lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.PUSH_EVENT));
-            totalPush += lines.size();
         }
 
-        List<HealthScore> healthScores = calculateHealthScore(totalPush, lines);
+        List<HealthScore> healthScores = calculateHealthScore(lines);
 
         List<String[]> csvRows = healthScores.stream()
-                .map(this::toCsvRow)
+                .map(HealthScore::toCsvRow)
                 .collect(Collectors.toList());
 
-        try{
+        try {
             FileUtil.createCSVFile(csvRows);
             System.out.println(String.format("Exported result to: %s", Constant.OUTPUT_FILE_NAME));
         } catch (IOException ex){
@@ -40,25 +39,32 @@ public class AverageCommitHeathMetric implements HealthMetric {
         }
     }
 
-    private String[] toCsvRow(HealthScore healthScore) {
-        return new String[]{healthScore.getRepo().getName(), String.valueOf(healthScore.getScore())};
-    }
-
     /**
      * calculate health score for each project
-     * @param totalPush
      * @param lines
      * @return  List<HealthScore> odered descending by score
      */
-    private List<HealthScore> calculateHealthScore(final long totalPush, List<String> lines) {
-        return lines.stream()
+    private List<HealthScore> calculateHealthScore(List<String> lines) {
+        // collect number of commits for each repo
+        List<HealthScore> healthScores = lines.stream()
                 .map(GitHubEvent::fromJson)
                 .collect(Collectors.groupingBy(x -> x.getRepo()))
                 .entrySet()
                 .stream()
-                .map(entry -> new HealthScore((Repo)entry.getKey(), (double)entry.getValue().size()/totalPush))
-                .sorted(Comparator.comparing(HealthScore::getScore, Comparator.reverseOrder()))
+                .map(entry -> HealthScore.builder()
+                        .repo((Repo)entry.getKey())
+                        .numOfCommit(entry.getValue().size())
+                        .build())
+                .sorted(Comparator.comparing(HealthScore::getNumOfCommit, Comparator.reverseOrder()))
                 .collect(Collectors.toList());
+
+        // select repo has max number of commits
+        double maxCommit = healthScores.stream().mapToDouble(HealthScore::getNumOfCommit).max().getAsDouble();
+
+        // update score
+        healthScores.forEach(healthScore -> healthScore.setScore(healthScore.getNumOfCommit()/maxCommit));
+
+        return healthScores;
     }
 
 }

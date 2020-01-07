@@ -5,7 +5,7 @@ import lombok.Getter;
 
 public enum GitHubEventType {
     PUSH_EVENT("PushEvent"),
-    ISSUE_EVENT("IssueEvent");
+    ISSUE_EVENT("IssuesEvent");
 
     private String value;
 

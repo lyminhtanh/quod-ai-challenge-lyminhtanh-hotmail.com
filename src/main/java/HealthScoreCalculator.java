@@ -29,8 +29,8 @@ public class HealthScoreCalculator {
         if (dateTimeStart == null || dateTimeEnd == null) {
             System.out.println("Please input valid arguments");
         }
-
-        // build list of dateTime string for valid urls
+//
+//        // build list of dateTime string for valid urls
         final List<String> urls = DateTimeUtil.buildDateTimeStringsFromInterval(dateTimeStart, dateTimeEnd);
 
         // download data parallely
@@ -38,8 +38,14 @@ public class HealthScoreCalculator {
 
         // process data
 //        new AverageCommitHeathMetric().calculate();
-        new AverageIssueOpenedTimeHeathMetric().calculate();
 
+        AverageIssueOpenedTimeHeathMetric.builder()
+                .dateTimeStart(dateTimeStart)
+                .dateTimeEnd(dateTimeEnd)
+                .build()
+                .calculate();
         // delete files
     }
+
+
 }
