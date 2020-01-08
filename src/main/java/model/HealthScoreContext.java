@@ -2,7 +2,9 @@ package model;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.chain.impl.ContextBase;
 
@@ -22,6 +24,9 @@ public class HealthScoreContext extends ContextBase {
 
   @Builder.Default
   private List<HealthScore> healthScores = new ArrayList<>();
+
+  @Builder.Default
+  private Map<Long, String> repoNames = new HashMap<>();
 
   private LocalDateTime dateTimeStart;
 

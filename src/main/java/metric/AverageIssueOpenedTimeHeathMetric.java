@@ -2,11 +2,7 @@ package metric;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.commons.chain.Command;
@@ -30,8 +26,8 @@ import util.FileUtil;
 import util.NormalizeUtil;
 
 /**
- * Average time that an issue remains opened
- * healthRatio = total(PushEvent of project A)/total(PushEvent)
+ * Average time that an issue remains opened healthRatio = total(PushEvent of
+ * project A)/total(PushEvent)
  */
 @Data
 @Builder
@@ -39,125 +35,120 @@ import util.NormalizeUtil;
 @AllArgsConstructor
 public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command {
 
-  private HealthScoreContext context;
+	private HealthScoreContext context;
 
-  @Override
-  public boolean execute(Context context) throws Exception {
-    this.context = (HealthScoreContext) context;
-    this.context.getHealthScores().addAll(calculate());
-    return false;
-  }
+	@Override
+	public boolean execute(Context context) throws Exception {
+		this.context = (HealthScoreContext) context;
 
-  @Override
-  public List<HealthScore> calculate() {
-        List<String> lines = new ArrayList<>();
-        for (String filePath : FileUtil.listJsonFiles()) {
-            lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.ISSUE_EVENT));
-        }
+		this.context.getHealthScores().addAll(calculate(this.context));
+		return false;
+	}
 
+	@Override
+	public List<HealthScore> calculate(HealthScoreContext context) {
 
-        Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue = lines.stream()
-                .map(GitHubEvent::fromJson)
-                .collect(Collectors.groupingBy(this::buildRepoIssueKey));
+		List<String> lines = new ArrayList<>();
+		for (String filePath : FileUtil.listJsonFiles()) {
+			lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.ISSUE_EVENT));
+		}
 
-        groupedByRepoIssue.values()
-                .stream()
-                .filter(events -> events.size() > 1)
-                .forEach(events -> events.sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
+		List<GitHubEvent> events = lines.stream().map(GitHubEvent::fromJson).collect(Collectors.toList());
 
-        Map<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet()
-                .stream()
-                .collect(Collectors.toMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+		Map<Long, String> repoNames = events.parallelStream().map(GitHubEvent::getRepo)
+				.collect(Collectors.toMap(Repo::getId, Repo::getName, (r1, r2) -> r1));
 
-        List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet()
-                .stream()
-                .collect(Collectors.groupingBy(entry -> entry.getKey().getRepoId()))
-                .entrySet()
-                .stream()
-                .map(entry -> calculateHealthScore(entry))
-                .sorted(Comparator.comparing(HealthScore::getScore, Comparator.reverseOrder()))
-                .collect(Collectors.toList());
+		this.context.getRepoNames().putAll(repoNames);
 
-        NormalizeUtil.normalize(healthScores);
+		Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue = events.stream()
+				.collect(Collectors.groupingBy(this::buildRepoIssueKey));
 
-    return healthScores;
-    }
+		groupedByRepoIssue.values().stream().filter(event -> event.size() > 1).forEach(
+				event -> events.sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
 
-    /**
-     * @param entry
-     * @return
-     */
-    private HealthScore calculateHealthScore(Map.Entry<Long, List<Map.Entry<RepoIssue, Long>>> entry) {
-        double score = calculateHealthScore(entry.getValue());
+		Map<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().stream()
+				.collect(Collectors.toMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
 
-        // TODO add repo name
-        Repo repo = Repo.builder().id(entry.getKey()).name(Constant.EMPTY_STRING).build();
-        return HealthScore.builder().repo(repo).score(score).build();
-    }
+		List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().stream()
+				.collect(Collectors.groupingBy(entry -> entry.getKey().getRepoId())).entrySet().stream()
+				.map(entry -> calculateHealthScore(entry))
+				.sorted(Comparator.comparing(HealthScore::getScore, Comparator.reverseOrder()))
+				.collect(Collectors.toList());
 
+		NormalizeUtil.normalize(healthScores);
 
-    /**
-     * @param entry
-     * @return
-     */
-    private Long calculateOpenTimeInMinutes(Map.Entry<RepoIssue, List<GitHubEvent>> entry) {
-        final LocalDateTime openedAt = Optional.ofNullable(entry.getValue().get(0))
-                .map(GitHubEvent::getPayload)
-                .map(Payload::getIssue)
-                .map(Issue::getCreatedAt)
-                .orElseThrow(() -> new IllegalStateException(String.format("No created_at found for Issue: %d", entry.getKey().getIssueId())));
+		healthScores.forEach(healthScore -> healthScore.setAvgIssueOpenTimeScore(healthScore.getScore()));
 
-        final LocalDateTime nonOpenedAt = getNonOpenActionCreatedAt(entry.getValue());
-        Duration duration = Duration.between(openedAt, nonOpenedAt);
+		return healthScores;
+	}
 
-        return duration.toMinutes();
-    }
+	/**
+	 * @param entry
+	 * @return
+	 */
+	private HealthScore calculateHealthScore(Map.Entry<Long, List<Map.Entry<RepoIssue, Long>>> entry) {
+		double score = calculateHealthScore(entry.getValue());
 
-  private LocalDateTime getNonOpenActionCreatedAt(List<GitHubEvent> events) {
-        boolean hasOpenAction = hasOpenedAction(events);
+		// TODO add repo name
+		return HealthScore.builder().repoId(entry.getKey()).score(score).build();
+	}
 
-        int nonOpenedIndex = 0;
+	/**
+	 * @param entry
+	 * @return
+	 */
+	private Long calculateOpenTimeInMinutes(Map.Entry<RepoIssue, List<GitHubEvent>> entry) {
+		final LocalDateTime openedAt = Optional.ofNullable(entry.getValue().get(0)).map(GitHubEvent::getPayload)
+				.map(Payload::getIssue).map(Issue::getCreatedAt).orElseThrow(() -> new IllegalStateException(
+						String.format("No created_at found for Issue: %d", entry.getKey().getIssueId())));
 
-        if(hasOpenAction){
-            if(events.size() == 1){
-        return this.context.getDateTimeEnd().plusHours(1);
-            }
-            nonOpenedIndex = 1;
-        }
+		final LocalDateTime nonOpenedAt = getNonOpenActionCreatedAt(entry.getValue());
+		Duration duration = Duration.between(openedAt, nonOpenedAt);
 
-        return events.get(nonOpenedIndex).getCreatedAt();
+		return duration.toMinutes();
+	}
 
-    }
+	private LocalDateTime getNonOpenActionCreatedAt(List<GitHubEvent> events) {
+		boolean hasOpenAction = hasOpenedAction(events);
 
-    private boolean hasOpenedAction(List<GitHubEvent> events) {
-        return events.stream()
-                .map(GitHubEvent::getPayload)
-                .map(Payload::getAction)
-                .anyMatch(Action.OPENED.value()::equals);
-    }
+		int nonOpenedIndex = 0;
 
-    private RepoIssue buildRepoIssueKey(GitHubEvent event) {
-        return new RepoIssue(event.getRepo().getId(), event.getPayload().getIssue().getId());
-    }
+		if (hasOpenAction) {
+			if (events.size() == 1) {
+				return this.context.getDateTimeEnd().plusHours(1);
+			}
+			nonOpenedIndex = 1;
+		}
 
-    /**
-     * calculate health score for each project
-     *
-     * @return List<HealthScore> odered descending by score
-     */
-    private double calculateHealthScore(List<Map.Entry<RepoIssue, Long>> entries) {
-        if(entries.size() == 0){
-            return 0;
-        }
-        Long avgOpenTime = entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).sum() / entries.size();
-        Long minOpenTime = entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).min().getAsLong();
-        if(minOpenTime == 0){
-            return 0;
-        }
-        System.out.println(avgOpenTime + "____" + minOpenTime);
-        return (double) avgOpenTime / minOpenTime;
-    }
+		return events.get(nonOpenedIndex).getCreatedAt();
 
+	}
 
+	private boolean hasOpenedAction(List<GitHubEvent> events) {
+		return events.stream().map(GitHubEvent::getPayload).map(Payload::getAction)
+				.anyMatch(Action.OPENED.value()::equals);
+	}
+
+	private RepoIssue buildRepoIssueKey(GitHubEvent event) {
+		return new RepoIssue(event.getRepo().getId(), event.getPayload().getIssue().getId());
+	}
+
+	/**
+	 * calculate health score for each project
+	 *
+	 * @return List<HealthScore> odered descending by score
+	 */
+	private double calculateHealthScore(List<Map.Entry<RepoIssue, Long>> entries) {
+		if (entries.size() == 0) {
+			return 0;
+		}
+		Long avgOpenTime = entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).sum() / entries.size();
+		Long minOpenTime = entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).min().getAsLong();
+		if (minOpenTime == 0) {
+			return 0;
+		}
+		System.out.println(avgOpenTime + "____" + minOpenTime);
+		return (double) avgOpenTime / minOpenTime;
+	}
 
 }

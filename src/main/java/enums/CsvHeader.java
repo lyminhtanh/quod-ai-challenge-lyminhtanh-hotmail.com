@@ -1,5 +1,5 @@
 package enums;
 
 public enum CsvHeader {
-  repo_name, health_score, num_commits,
+  repo_id, repo_name, final_health_score, avgCommitScore, avgIssueOpenTimeScore, num_commits,
 }
