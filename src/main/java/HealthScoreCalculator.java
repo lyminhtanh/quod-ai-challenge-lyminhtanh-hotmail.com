@@ -1,18 +1,23 @@
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.apache.commons.chain.Command;
+import org.openjdk.jmh.runner.RunnerException;
 
-import enums.Metric;
 import enums.MetricGroup;
-import metric.MetricCatalog;
 import model.HealthScoreContext;
 import util.ChainUtil;
 import util.DateTimeUtil;
 import util.FileUtil;
 
 public class HealthScoreCalculator {
-  public static void main(String[] args) {
+  public static void main(String[] args) throws RunnerException, IOException {
+
+    // Options opt =
+    // new OptionsBuilder().include(HealthScoreCalculator.class.getSimpleName()).forks(1).build();
+    //
+    // new Runner(opt).run();
+
     // parse input
     final LocalDateTime dateTimeStart = DateTimeUtil.parseDateTime(args[0]);
     final LocalDateTime dateTimeEnd = DateTimeUtil.parseDateTime(args[1]);
@@ -27,15 +32,13 @@ public class HealthScoreCalculator {
         DateTimeUtil.buildDateTimeStringsFromInterval(dateTimeStart, dateTimeEnd);
 
     // download data parallely
-//    urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
+    urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
 
     //build context by metric
     HealthScoreContext context = HealthScoreContext.builder()
-    		.metricGroup(MetricGroup.all_metric)
-    		.dateTimeStart(dateTimeStart)
-    		.dateTimeEnd(dateTimeEnd)
-    		.build();
-    
+        .metricGroup(MetricGroup.all_metric).dateTimeStart(dateTimeStart).dateTimeEnd(dateTimeEnd)
+        .build();
+
     // process data
     ChainUtil.executeChain(context);
 

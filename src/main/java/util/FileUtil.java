@@ -1,27 +1,31 @@
 package util;
 
-import constant.Constant;
-import enums.CsvHeader;
-import enums.GitHubEventType;
-import enums.Metric;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.IllegalFormatException;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.zip.GZIPInputStream;
+import constant.Constant;
+import enums.CsvHeader;
+import enums.GitHubEventType;
+import enums.Metric;
 
 public class FileUtil {
     /**
@@ -90,17 +94,40 @@ public class FileUtil {
     }
 
     /**
-     * create CSV File from data rows
-     * @param rows
+     * list all Json Files
+     *
+     * @return Set<String>
      * @throws IOException
      */
+  // public static Set<String> deleteJsonFiles() {
+  // try (Stream<Path> stream = Files.walk(Paths.get(""), 1)) {
+  // return stream.filter(file -> !Files.isDirectory(file))
+  // .map(Path::getFileName)
+  // .filter(fileName -> fileName.toString().endsWith(".json"))
+  // .map(Path::toFile)
+  // .forEach(File::delete);
+  // .map(Path::toString)
+  // .collect(Collectors.toSet());
+  // } catch (IOException ex) {
+  // System.out.println(String.format("Failed list Json files. %s", ex));
+  // }
+  // return new HashSet<>();
+  // }
+
+  /**
+   * create CSV File from data rows
+   *
+   * @param rows
+   * @throws IOException
+   */
     public static void createCSVFile(List<String[]> rows) throws IOException {
         FileWriter out = new FileWriter(Constant.OUTPUT_FILE_NAME);
 
         List<String> headers = Stream.of(CsvHeader.values()).map(CsvHeader::name).collect(Collectors.toList());
         headers.addAll(Stream.of(Metric.values()).map(Metric::name).collect(Collectors.toList()));
-        
-		try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
+
+    try (CSVPrinter printer =
+        new CSVPrinter(out, CSVFormat.DEFAULT
                 .withHeader(headers.toArray(new String[0])))) {
             for (String[] row : rows) {
                 printer.printRecord(row);

@@ -1,7 +1,6 @@
 package enums;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import lombok.Getter;
 
 public enum GitHubEventType {
     PUSH_EVENT("PushEvent"),
@@ -17,4 +16,6 @@ public enum GitHubEventType {
     public String value(){
         return this.value;
     }
+
+
 }

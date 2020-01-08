@@ -1,20 +1,14 @@
 package metric;
 
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.apache.commons.chain.Context;
 import org.apache.commons.chain.Filter;
 
 import model.HealthScore;
 import model.HealthScoreContext;
-import model.Repo;
 import util.NormalizeUtil;
 
 /**
@@ -23,49 +17,50 @@ import util.NormalizeUtil;
  */
 public class HealthScoreAggregator implements Filter {
 
-	@Override
-	public boolean execute(Context context) throws Exception {
-		List<HealthScore> healthScores = ((HealthScoreContext) context).getHealthScores();
+  @Override
+  public boolean execute(Context context) throws Exception {
+    List<HealthScore> healthScores = ((HealthScoreContext) context).getHealthScores();
 
-		// normalize scores
-		NormalizeUtil.normalize(healthScores, ((HealthScoreContext) context).getMetricGroup());
+    // normalize scores
+    NormalizeUtil.normalize(healthScores, ((HealthScoreContext) context).getMetricGroup());
 
-		// calculate final score
-		aggregateHealScore(healthScores);
+    // calculate final score
+    aggregateHealScore(healthScores);
 
-		// sort descending by score
-		healthScores.sort(Comparator.comparing(HealthScore::getScore, Comparator.nullsLast(Comparator.reverseOrder())));
+    // sort descending by score
+    healthScores.sort(Comparator.comparing(HealthScore::getScore,
+        Comparator.nullsLast(Comparator.reverseOrder())));
 
-		// update repo names
-		Map<Long, String> repoNameMap = ((HealthScoreContext) context).getRepoNames();
-		healthScores.forEach(healthScore -> {
-			healthScore.setRepoName(repoNameMap.get(healthScore.getRepoId()));
-		});
-		// update to context
-		((HealthScoreContext) context).setHealthScores(healthScores);
+    // update repo names
+    Map<Long, String> repoNameMap = ((HealthScoreContext) context).getRepoNames();
+    healthScores.forEach(healthScore -> {
+      healthScore.setRepoName(repoNameMap.get(healthScore.getRepoId()));
+    });
+    // update to context
+    ((HealthScoreContext) context).setHealthScores(healthScores);
 
-		return false;
-	}
+    return false;
+  }
 
-	@Override
-	public boolean postprocess(Context context, Exception exception) {
+  @Override
+  public boolean postprocess(Context context, Exception exception) {
 
-		return false;
-	}
+    return false;
+  }
 
-	/**
-	 * return first object with final aggregate score
-	 *
-	 * @param healthScores
-	 * @return
-	 */
-	private void aggregateHealScore(List<HealthScore> healthScores) {
-		healthScores.forEach(healthScore -> {
-			Double aggregateScore = healthScore.getSingleMetricScores().values().stream()
-					.mapToDouble(Double::doubleValue).reduce(1.0, (a, b) -> a * b);
+  /**
+   * return first object with final aggregate score
+   *
+   * @param healthScores
+   * @return
+   */
+  private void aggregateHealScore(List<HealthScore> healthScores) {
+    healthScores.forEach(healthScore -> {
+      Double aggregateScore = healthScore.getSingleMetricScores().values().stream()
+          .mapToDouble(Double::doubleValue).reduce(1.0, (a, b) -> a * b);
 
-			healthScore.setScore(aggregateScore);
-		});
-	}
+      healthScore.setScore(aggregateScore);
+    });
+  }
 
 }
