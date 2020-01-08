@@ -8,6 +8,8 @@ import java.util.Map;
 
 import org.apache.commons.chain.impl.ContextBase;
 
+import enums.Metric;
+import enums.MetricGroup;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,5 +33,7 @@ public class HealthScoreContext extends ContextBase {
   private LocalDateTime dateTimeStart;
 
   private LocalDateTime dateTimeEnd;
+  
+  private MetricGroup metricGroup;
 
 }

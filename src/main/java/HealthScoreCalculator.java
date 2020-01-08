@@ -4,8 +4,10 @@ import java.util.List;
 import org.apache.commons.chain.Command;
 
 import enums.Metric;
+import enums.MetricGroup;
 import metric.MetricCatalog;
 import model.HealthScoreContext;
+import util.ChainUtil;
 import util.DateTimeUtil;
 import util.FileUtil;
 
@@ -25,17 +27,17 @@ public class HealthScoreCalculator {
         DateTimeUtil.buildDateTimeStringsFromInterval(dateTimeStart, dateTimeEnd);
 
     // download data parallely
-    urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
+//    urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
 
+    //build context by metric
+    HealthScoreContext context = HealthScoreContext.builder()
+    		.metricGroup(MetricGroup.all_metric)
+    		.dateTimeStart(dateTimeStart)
+    		.dateTimeEnd(dateTimeEnd)
+    		.build();
+    
     // process data
-    try {
-      Command allMetricChain = new MetricCatalog().getCommand(Metric.all_metric.name());
-      allMetricChain.execute(HealthScoreContext.builder().dateTimeStart(dateTimeStart)
-          .dateTimeEnd(dateTimeEnd).build());
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+    ChainUtil.executeChain(context);
 
     // delete files
   }

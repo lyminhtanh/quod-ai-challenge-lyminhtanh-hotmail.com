@@ -2,19 +2,30 @@ package metric;
 
 import java.awt.Event;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.chain.Command;
 import org.apache.commons.chain.Context;
+import org.apache.commons.collections4.CollectionUtils;
 
+import constant.Constant;
 import enums.GitHubEventType;
+import enums.Metric;
 import model.GitHubEvent;
 import model.HealthScore;
 import model.HealthScoreContext;
 import model.Repo;
+import util.ChainUtil;
 import util.FileUtil;
 
 /**
@@ -22,11 +33,22 @@ import util.FileUtil;
  * total(PushEvent of project A)/total(PushEvent)
  */
 public class AverageCommitHeathMetric implements HealthMetric, Command {
+	
+	
+	private HealthScoreContext context;
+	
+	private static final Metric METRIC = Metric.average_commit;
+
 
 	@Override
 	public boolean execute(Context context) throws Exception {
-		List<HealthScore> healthScores = calculate(((HealthScoreContext) context));
-		((HealthScoreContext) context).getHealthScores().addAll(healthScores);
+		this.context = ((HealthScoreContext) context);
+		
+		List<HealthScore> currentMetricHealthScores = calculate(((HealthScoreContext) context));
+		List<HealthScore> ctxHealthScores = ((HealthScoreContext) context).getHealthScores();
+
+		ChainUtil.mergeHealthScores(ctxHealthScores, currentMetricHealthScores);
+
 		return false;
 	}
 
@@ -41,7 +63,7 @@ public class AverageCommitHeathMetric implements HealthMetric, Command {
 		List<GitHubEvent> events = lines.stream().map(GitHubEvent::fromJson).collect(Collectors.toList());
 
 		Map<Long, String> repoNames = events.parallelStream().map(GitHubEvent::getRepo)
-				.collect(Collectors.toMap(Repo::getId, Repo::getName, (r1, r2) -> r1 ));
+				.collect(Collectors.toMap(Repo::getId, Repo::getName, (r1, r2) -> r1));
 
 		context.getRepoNames().putAll(repoNames);
 
@@ -59,7 +81,7 @@ public class AverageCommitHeathMetric implements HealthMetric, Command {
 
 		List<HealthScore> healthScores = events.stream().collect(Collectors.groupingBy(x -> x.getRepo().getId()))
 				.entrySet().stream()
-				.map(entry -> HealthScore.builder().repoId(entry.getKey()).numOfCommit(entry.getValue().size()).build())
+				.map(this::buildHealthScore)
 				.sorted(Comparator.comparing(HealthScore::getNumOfCommit, Comparator.reverseOrder()))
 				.collect(Collectors.toList());
 
@@ -68,11 +90,22 @@ public class AverageCommitHeathMetric implements HealthMetric, Command {
 
 		// update score
 		healthScores.forEach(healthScore -> {
+			healthScore.getSingleMetricScores().put(METRIC, healthScore.getNumOfCommit() / maxCommit);
 			healthScore.setScore(healthScore.getNumOfCommit() / maxCommit);
 			healthScore.setAvgCommitScore(healthScore.getScore());
 		});
 
 		return healthScores;
 	}
+
+	private HealthScore buildHealthScore(Entry<Long, List<GitHubEvent>> entry) {
+		return HealthScore.commonBuilder(this.context.getMetricGroup())
+				.repoId(entry.getKey())
+				.numOfCommit(entry.getValue().size())
+				.build();
+	}
+
+	
+	
 
 }

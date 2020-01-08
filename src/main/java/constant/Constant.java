@@ -8,5 +8,5 @@ public class Constant {
     public static final String ISO_DATE_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'";
     public static final String ZONE_UTC = "UTC";
     public static final String EMPTY_STRING = "";
-
+    public static final Double DEFAULT_SCORE = 0.0;
 }

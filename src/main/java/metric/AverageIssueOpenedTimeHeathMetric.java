@@ -3,6 +3,7 @@ package metric;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.commons.chain.Command;
@@ -11,10 +12,12 @@ import org.apache.commons.chain.Context;
 import constant.Constant;
 import enums.Action;
 import enums.GitHubEventType;
+import enums.Metric;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.Helper;
 import model.GitHubEvent;
 import model.HealthScore;
 import model.HealthScoreContext;
@@ -22,6 +25,7 @@ import model.Issue;
 import model.Payload;
 import model.Repo;
 import model.RepoIssue;
+import util.ChainUtil;
 import util.FileUtil;
 import util.NormalizeUtil;
 
@@ -35,13 +39,20 @@ import util.NormalizeUtil;
 @AllArgsConstructor
 public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command {
 
+	private static final Metric METRIC = Metric.average_issue_opened_time;
+
 	private HealthScoreContext context;
 
 	@Override
 	public boolean execute(Context context) throws Exception {
 		this.context = (HealthScoreContext) context;
 
-		this.context.getHealthScores().addAll(calculate(this.context));
+		
+		List<HealthScore> currentMetricHealthScores = calculate(((HealthScoreContext) context));
+		List<HealthScore> ctxHealthScores = ((HealthScoreContext) context).getHealthScores();
+
+		ChainUtil.mergeHealthScores(ctxHealthScores, currentMetricHealthScores);
+
 		return false;
 	}
 
@@ -75,10 +86,6 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
 				.sorted(Comparator.comparing(HealthScore::getScore, Comparator.reverseOrder()))
 				.collect(Collectors.toList());
 
-		NormalizeUtil.normalize(healthScores);
-
-		healthScores.forEach(healthScore -> healthScore.setAvgIssueOpenTimeScore(healthScore.getScore()));
-
 		return healthScores;
 	}
 
@@ -89,8 +96,19 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
 	private HealthScore calculateHealthScore(Map.Entry<Long, List<Map.Entry<RepoIssue, Long>>> entry) {
 		double score = calculateHealthScore(entry.getValue());
 
-		// TODO add repo name
-		return HealthScore.builder().repoId(entry.getKey()).score(score).build();
+		return buildHealthScore(entry.getKey(), score);
+	}
+
+	private HealthScore buildHealthScore(Long repoId, double score) {
+		HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
+				.repoId(repoId)
+				.score(score)
+				.build();
+		
+		healthScore.getSingleMetricScores().put(METRIC, score);
+
+		return healthScore;
+				
 	}
 
 	/**

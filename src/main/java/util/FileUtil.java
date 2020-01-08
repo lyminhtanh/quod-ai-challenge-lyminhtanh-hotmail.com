@@ -3,6 +3,8 @@ package util;
 import constant.Constant;
 import enums.CsvHeader;
 import enums.GitHubEventType;
+import enums.Metric;
+
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.io.FileUtils;
@@ -95,8 +97,11 @@ public class FileUtil {
     public static void createCSVFile(List<String[]> rows) throws IOException {
         FileWriter out = new FileWriter(Constant.OUTPUT_FILE_NAME);
 
-        try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                .withHeader(CsvHeader.class))) {
+        List<String> headers = Stream.of(CsvHeader.values()).map(CsvHeader::name).collect(Collectors.toList());
+        headers.addAll(Stream.of(Metric.values()).map(Metric::name).collect(Collectors.toList()));
+        
+		try (CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
+                .withHeader(headers.toArray(new String[0])))) {
             for (String[] row : rows) {
                 printer.printRecord(row);
             }
