@@ -1,76 +1,35 @@
 package metric;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.apache.commons.chain.Command;
-import org.apache.commons.chain.Context;
-
 import enums.Action;
 import enums.GitHubEventType;
 import enums.Metric;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import model.GitHubEvent;
 import model.HealthScore;
-import model.HealthScoreContext;
 import model.Issue;
 import model.Payload;
-import model.Repo;
 import model.RepoIssue;
-import util.ChainUtil;
-import util.FileUtil;
 
 /**
  * Average time that an issue remains opened healthRatio = total(PushEvent of
  * project A)/total(PushEvent)
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command {
+public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
 
-  private static final Metric METRIC = Metric.average_issue_opened_time;
-
-  private HealthScoreContext context;
-
-  @Override
-  public boolean execute(Context context) throws Exception {
-    this.context = (HealthScoreContext) context;
-
-
-    List<HealthScore> currentMetricHealthScores = calculate(((HealthScoreContext) context));
-    List<HealthScore> ctxHealthScores = ((HealthScoreContext) context).getHealthScores();
-
-    ChainUtil.mergeHealthScores(ctxHealthScores, currentMetricHealthScores, METRIC);
-
-    return false;
+  public AverageIssueOpenedTimeHeathMetric() {
+    super(Metric.average_issue_opened_time, GitHubEventType.ISSUE_EVENT);
   }
 
   @Override
-  public List<HealthScore> calculate(HealthScoreContext context) {
-
-    List<String> lines = new ArrayList<>();
-    for (String filePath : FileUtil.listJsonFiles()) {
-      lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.ISSUE_EVENT));
-    }
-
-    List<GitHubEvent> events =
-        lines.stream().map(GitHubEvent::fromJson).collect(Collectors.toList());
-
-    Map<Long, String> repoNames = events.parallelStream().map(GitHubEvent::getRepo)
-        .collect(Collectors.toMap(Repo::getId, Repo::getName, (r1, r2) -> r1));
-
-    this.context.getRepoNames().putAll(repoNames);
+  public List<HealthScore> calculate() throws IOException {
 
     Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
         events.stream().collect(Collectors.groupingBy(this::buildRepoIssueKey));
@@ -104,7 +63,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
     HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
         .repoId(repoId).score(score).build();
 
-    healthScore.getSingleMetricScores().put(METRIC, score);
+    healthScore.getSingleMetricScores().put(this.metric, score);
 
     return healthScore;
 

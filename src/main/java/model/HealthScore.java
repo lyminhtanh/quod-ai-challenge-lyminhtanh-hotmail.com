@@ -29,6 +29,8 @@ public class HealthScore {
 
   private Integer numOfDeveloper;
 
+  private Integer numOfRelease;
+
   @Builder.Default
   private Map<Metric, Double> singleMetricScores = new HashMap<>();
 
@@ -45,6 +47,7 @@ public class HealthScore {
     row.add(String.valueOf(score));
     row.add(String.valueOf(numOfCommit));
     row.add(String.valueOf(numOfDeveloper));
+    row.add(String.valueOf(numOfRelease));
     row.addAll(singleMetricScoresStr);
     return row.toArray(new String[0]);
   };

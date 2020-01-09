@@ -1,72 +1,32 @@
 package metric;
 
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.commons.chain.Command;
-import org.apache.commons.chain.Context;
-
 import enums.GitHubEventType;
 import enums.IssueState;
 import enums.Metric;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import model.GitHubEvent;
 import model.HealthScore;
-import model.HealthScoreContext;
 import model.Issue;
 import model.Payload;
-import model.Repo;
 import model.RepoIssue;
-import util.ChainUtil;
-import util.FileUtil;
 
 /**
  * Average time that an issue remains opened healthRatio = total(PushEvent of
  * project A)/total(PushEvent)
  */
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AverageOpenedToClosedIssueHeathMetric implements HealthMetric, Command {
 
-  private static final Metric METRIC = Metric.average_opened_to_closed_issue_ratio;
+public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
 
-  private HealthScoreContext context;
-
-  @Override
-  public boolean execute(Context context) throws Exception {
-    this.context = (HealthScoreContext) context;
-
-
-    List<HealthScore> currentMetricHealthScores = calculate(((HealthScoreContext) context));
-    List<HealthScore> ctxHealthScores = ((HealthScoreContext) context).getHealthScores();
-
-    ChainUtil.mergeHealthScores(ctxHealthScores, currentMetricHealthScores, METRIC);
-
-    return false;
+  public AverageOpenedToClosedIssueHeathMetric() {
+    super(Metric.average_opened_to_closed_issue_ratio, GitHubEventType.ISSUE_EVENT);
   }
 
   @Override
-  public List<HealthScore> calculate(HealthScoreContext context) {
-
-    List<String> lines = new ArrayList<>();
-    for (String filePath : FileUtil.listJsonFiles()) {
-      lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.ISSUE_EVENT));
-    }
-
-    List<GitHubEvent> events =
-        lines.stream().map(GitHubEvent::fromJson).collect(Collectors.toList());
-
-    Map<Long, String> repoNames = events.parallelStream().map(GitHubEvent::getRepo)
-        .collect(Collectors.toMap(Repo::getId, Repo::getName, (r1, r2) -> r1));
-
-    this.context.getRepoNames().putAll(repoNames);
+  public List<HealthScore> calculate() throws IOException {
 
     Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
         events.stream().collect(Collectors.groupingBy(this::buildRepoIssueKey));
@@ -97,7 +57,7 @@ public class AverageOpenedToClosedIssueHeathMetric implements HealthMetric, Comm
     HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
         .repoId(repoId).build();
 
-    healthScore.getSingleMetricScores().put(METRIC, score);
+    healthScore.getSingleMetricScores().put(this.metric, score);
 
     return healthScore;
 
@@ -133,7 +93,7 @@ public class AverageOpenedToClosedIssueHeathMetric implements HealthMetric, Comm
     if (numOfClosedIssue == 0) {
       return Double.MAX_VALUE;
     }
-    
+
     return (double)(entries.size() - numOfClosedIssue)/numOfClosedIssue;
   }
 

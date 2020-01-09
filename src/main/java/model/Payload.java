@@ -14,4 +14,6 @@ public class Payload {
 
   private PullRequest pullRequest;
 
+  private Release release;
+
 }

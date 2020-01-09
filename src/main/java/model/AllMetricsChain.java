@@ -9,6 +9,7 @@ import metric.AverageOpenedToClosedIssueHeathMetric;
 import metric.AveragePullRequestMergedTimeHeathMetric;
 import metric.CsvExporter;
 import metric.HealthScoreAggregator;
+import metric.NumOfReleaseHeathMetric;
 
 public class AllMetricsChain extends ChainBase {
 
@@ -19,6 +20,7 @@ public class AllMetricsChain extends ChainBase {
     addCommand(new AveragePullRequestMergedTimeHeathMetric());
     addCommand(new AverageCommitPerDeveloperRatioHeathMetric());
     addCommand(new AverageOpenedToClosedIssueHeathMetric());
+    addCommand(new NumOfReleaseHeathMetric());
     addCommand(new HealthScoreAggregator());
     addCommand(new CsvExporter());
   }

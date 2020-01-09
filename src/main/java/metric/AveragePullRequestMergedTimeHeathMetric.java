@@ -1,75 +1,36 @@
 package metric;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.apache.commons.chain.Command;
-import org.apache.commons.chain.Context;
-
 import enums.GitHubEventType;
 import enums.Metric;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import model.GitHubEvent;
 import model.HealthScore;
-import model.HealthScoreContext;
 import model.Payload;
 import model.PullRequest;
-import model.Repo;
 import model.RepoPullRequest;
-import util.ChainUtil;
-import util.FileUtil;
 
 /**
  * Average time for a pull request to get merged If an issue has not yet merged in the search
  * period, it will be ignored in calculation
  */
-@Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AveragePullRequestMergedTimeHeathMetric implements HealthMetric, Command {
+public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
 
-  private static final Metric METRIC = Metric.average_pull_request_merge_time;
-
-  private HealthScoreContext context;
-
-  @Override
-  public boolean execute(Context context) throws Exception {
-    this.context = (HealthScoreContext) context;
-
-
-    List<HealthScore> currentMetricHealthScores = calculate(((HealthScoreContext) context));
-    List<HealthScore> ctxHealthScores = ((HealthScoreContext) context).getHealthScores();
-
-    ChainUtil.mergeHealthScores(ctxHealthScores, currentMetricHealthScores, METRIC);
-
-    return false;
+  public AveragePullRequestMergedTimeHeathMetric() {
+    super(Metric.average_pull_request_merge_time, GitHubEventType.PULL_REQUEST_EVENT);
   }
 
   @Override
-  public List<HealthScore> calculate(HealthScoreContext context) {
-
-    List<String> lines = new ArrayList<>();
-    for (String filePath : FileUtil.listJsonFiles()) {
-      lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.PULL_REQUEST_EVENT));
-    }
-
-    List<GitHubEvent> events =
-        lines.stream().map(GitHubEvent::fromJson).collect(Collectors.toList());
-
-    Map<Long, String> repoNames = events.parallelStream().map(GitHubEvent::getRepo)
-        .collect(Collectors.toMap(Repo::getId, Repo::getName, (r1, r2) -> r1));
-
-    this.context.getRepoNames().putAll(repoNames);
+  public List<HealthScore> calculate() throws IOException {
 
     Map<RepoPullRequest, List<GitHubEvent>> groupedByRepoPullRequest =
         events.stream().collect(Collectors.groupingBy(this::buildRepoPullRequestKey));
@@ -101,7 +62,7 @@ public class AveragePullRequestMergedTimeHeathMetric implements HealthMetric, Co
     HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
         .repoId(repoId).score(score).build();
 
-    healthScore.getSingleMetricScores().put(METRIC, score);
+    healthScore.getSingleMetricScores().put(this.metric, score);
 
     return healthScore;
 
