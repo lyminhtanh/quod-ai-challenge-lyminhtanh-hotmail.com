@@ -9,7 +9,7 @@ import java.util.stream.Stream;
 
 import constant.Constant;
 import enums.Metric;
-import enums.MetricGroup;
+import enums.Strategy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -52,12 +52,12 @@ public class HealthScore {
     return row.toArray(new String[0]);
   };
 
-  public static HealthScore.HealthScoreBuilder commonBuilder(MetricGroup metricGroup) {
+  public static HealthScore.HealthScoreBuilder commonBuilder(Strategy metricGroup) {
     return HealthScore.builder().singleMetricScores(initSingleMetricMap(metricGroup));
 
   }
 
-  private static Map<Metric, Double> initSingleMetricMap(MetricGroup metricGroup) {
+  private static Map<Metric, Double> initSingleMetricMap(Strategy metricGroup) {
     Map<Metric, Double> singleMetricScores = new HashMap<>();
 
     // init by metrics

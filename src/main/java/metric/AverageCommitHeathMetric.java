@@ -15,6 +15,7 @@ import model.HealthScore;
  * Average number of commits (push) per day (to any branch) healthRatio =
  * total(PushEvent of project A)/total(PushEvent)
  */
+
 public class AverageCommitHeathMetric extends HealthMetric {
 
   public AverageCommitHeathMetric() throws IOException {
@@ -24,6 +25,7 @@ public class AverageCommitHeathMetric extends HealthMetric {
   @Override
   public List<HealthScore> calculate() throws IOException {
     // collect number of commits for each repo
+
     List<HealthScore> healthScores =
         events.stream().collect(Collectors.groupingBy(x -> x.getRepo().getId())).entrySet().stream()
             .map(this::buildHealthScore)

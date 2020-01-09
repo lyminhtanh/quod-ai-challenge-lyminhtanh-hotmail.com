@@ -11,6 +11,7 @@ import org.apache.commons.chain.Context;
 
 import enums.GitHubEventType;
 import enums.Metric;
+import lombok.extern.log4j.Log4j2;
 import model.GitHubEvent;
 import model.HealthScore;
 import model.HealthScoreContext;
@@ -18,7 +19,10 @@ import model.Repo;
 import util.ChainUtil;
 import util.FileUtil;
 
+@Log4j2
 public abstract class HealthMetric implements Command {
+
+  abstract protected List<HealthScore> calculate() throws IOException;
 
   private GitHubEventType eventType;
 
@@ -29,6 +33,7 @@ public abstract class HealthMetric implements Command {
 
   @Override
   public boolean execute(Context context) throws Exception {
+    log.info("-- START {}", this.metric.name());
     this.events = getEvents(eventType);
     this.context = ((HealthScoreContext) context);
 
@@ -38,7 +43,7 @@ public abstract class HealthMetric implements Command {
     ChainUtil.mergeHealthScores(ctxHealthScores, currentMetricHealthScores, this.metric);
 
     updateRepoNameMap();
-
+    log.info("-- END {}", this.metric.name());
     return false;
   }
 
@@ -48,8 +53,6 @@ public abstract class HealthMetric implements Command {
 
     context.getRepoNames().putAll(repoNames);
   }
-
-  abstract protected List<HealthScore> calculate() throws IOException;
 
   protected HealthScoreContext context;
 
@@ -66,7 +69,7 @@ public abstract class HealthMetric implements Command {
       events.addAll(readLinesByEventType);
     }
 
-    events.removeIf(event -> !eventType.name().equals(event.getType()));
+    events.removeIf(event -> !eventType.value().equals(event.getType()));
 
     return events;
 

@@ -25,8 +25,10 @@ import constant.Constant;
 import enums.CsvHeader;
 import enums.GitHubEventType;
 import enums.Metric;
+import lombok.extern.log4j.Log4j2;
 import model.GitHubEvent;
 
+@Log4j2
 public class FileUtil {
   /**
    * download File
@@ -37,7 +39,7 @@ public class FileUtil {
    */
   public static void downloadAsJsonFile(final String dateTimeString)
       throws MalformedURLException, IOException {
-      System.out.println(
+      log.info(
           String.format("--Downloading: %s", String.format(Constant.BASE_URL, dateTimeString)));
 
       final String pathname = String.format(Constant.BASE_UNZIPPED_FILE_NAME, dateTimeString);
@@ -52,7 +54,7 @@ public class FileUtil {
       // decompress gzip then saving to file
       FileUtils.copyInputStreamToFile(new GZIPInputStream(conn.getInputStream()), downloadedFile);
 
-      System.out.println(String.format("-- Saved to: %s.json", dateTimeString));
+      log.info(String.format("-- Saved to: %s.json", dateTimeString));
   }
 
   /**
@@ -72,7 +74,7 @@ public class FileUtil {
         if (line.contains(eventTypeStr)) {
           GitHubEvent event = GitHubEvent.fromJson(line);
           if (!event.getType().equals(eventType.value())) {
-            System.out.println(line);
+            log.debug(line);
 
           }
           lines.add(line);
@@ -113,7 +115,7 @@ public class FileUtil {
   // .map(Path::toString)
   // .collect(Collectors.toSet());
   // } catch (IOException ex) {
-  // System.out.println(String.format("Failed list Json files. %s", ex));
+  // log.info(String.format("Failed list Json files. %s", ex));
   // }
   // return new HashSet<>();
   // }

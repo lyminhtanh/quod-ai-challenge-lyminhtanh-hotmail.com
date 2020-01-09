@@ -4,8 +4,10 @@ import model.HealthScore;
 
 import java.util.List;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 import enums.Metric;
-import enums.MetricGroup;
+import enums.Strategy;
 
 public class NormalizeUtil {
 
@@ -14,7 +16,10 @@ public class NormalizeUtil {
      * @param healthScores
      * @param metricGroup 
      */
-    public static void normalize(List<HealthScore> healthScores, MetricGroup metricGroup) {
+    public static void normalize(List<HealthScore> healthScores, Strategy metricGroup) {
+    if (CollectionUtils.isEmpty(healthScores)) {
+      return;
+    }
     	metricGroup.getMetrics().forEach(metric -> normalize(healthScores, metric));
     }
 	

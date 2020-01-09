@@ -10,7 +10,9 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import jackson.CustomDateTimeDeserializer;
 import lombok.Data;
+import lombok.extern.log4j.Log4j2;
 
+@Log4j2
 @Data
 public class GitHubEvent {
   private String type;
@@ -33,7 +35,7 @@ public class GitHubEvent {
     try {
       event = objectMapper.readValue(json, GitHubEvent.class);
     } catch (IOException ex) {
-      System.out.println(ex);
+      log.error(ex);
     }
 
     return event;

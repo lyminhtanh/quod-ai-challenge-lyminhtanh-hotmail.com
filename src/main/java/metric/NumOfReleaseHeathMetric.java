@@ -45,8 +45,6 @@ public class NumOfReleaseHeathMetric extends HealthMetric {
   }
 
   private Integer countRelease(List<GitHubEvent> events) {
-    // TODO how can other EvenrType appears
-    System.out.println(events.toString());
     return events.stream().map(GitHubEvent::getPayload).map(Payload::getRelease)
         .filter(Objects::nonNull).map(Release::getId)
         .collect(Collectors.toSet()).size();
