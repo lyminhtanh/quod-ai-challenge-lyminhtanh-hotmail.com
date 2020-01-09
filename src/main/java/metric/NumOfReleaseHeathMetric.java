@@ -18,7 +18,7 @@ import model.Release;
  */
 public class NumOfReleaseHeathMetric extends HealthMetric {
 
-  public NumOfReleaseHeathMetric() {
+  public NumOfReleaseHeathMetric() throws IOException {
     super(Metric.num_of_releases, GitHubEventType.RELEASE_EVENT);
   }
 

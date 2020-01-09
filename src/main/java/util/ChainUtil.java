@@ -15,22 +15,18 @@ public class ChainUtil {
 
   /**
    * execute Chain by context
-   * 
+   *
    * @param context
+   * @throws Exception
    */
-  public static void executeChain(HealthScoreContext context) {
-    try {
+  public static void executeChain(HealthScoreContext context) throws Exception {
       Command allMetricChain = new MetricCatalog().getCommand(context.getMetricGroup().name());
       allMetricChain.execute(context);
-    } catch (Exception e) {
-
-    }
-
   }
 
   /**
    * merge results in to context's healthScores
-   * 
+   *
    * @param ctxHealthScores
    * @param currentMetricHealthScores
    */

@@ -24,7 +24,7 @@ import model.RepoIssue;
  */
 public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
 
-  public AverageIssueOpenedTimeHeathMetric() {
+  public AverageIssueOpenedTimeHeathMetric() throws IOException {
     super(Metric.average_issue_opened_time, GitHubEventType.ISSUE_EVENT);
   }
 

@@ -20,7 +20,7 @@ import util.FileUtil;
 
 public abstract class HealthMetric implements Command {
 
-  public HealthMetric(Metric metric, GitHubEventType eventType) {
+  public HealthMetric(Metric metric, GitHubEventType eventType) throws IOException {
     this.events = getEvents(eventType);
     this.metric = metric;
   }
@@ -54,7 +54,7 @@ public abstract class HealthMetric implements Command {
 
   protected List<GitHubEvent> events;
 
-  protected List<GitHubEvent> getEvents(GitHubEventType eventType) {
+  protected List<GitHubEvent> getEvents(GitHubEventType eventType) throws IOException {
     List<GitHubEvent> events = new Vector<>();
     for (String filePath : FileUtil.listJsonFiles()) {
       List<GitHubEvent> readLinesByEventType =

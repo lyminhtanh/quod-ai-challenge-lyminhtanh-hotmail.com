@@ -1,5 +1,7 @@
 package model;
 
+import java.io.IOException;
+
 import org.apache.commons.chain.impl.ChainBase;
 
 import metric.AverageCommitHeathMetric;
@@ -13,7 +15,7 @@ import metric.NumOfReleaseHeathMetric;
 
 public class AllMetricsChain extends ChainBase {
 
-  public AllMetricsChain() {
+  public AllMetricsChain() throws IOException {
     super();
     addCommand(new AverageCommitHeathMetric());
     addCommand(new AverageIssueOpenedTimeHeathMetric());

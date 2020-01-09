@@ -21,7 +21,7 @@ import model.RepoIssue;
 
 public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
 
-  public AverageOpenedToClosedIssueHeathMetric() {
+  public AverageOpenedToClosedIssueHeathMetric() throws IOException {
     super(Metric.average_opened_to_closed_issue_ratio, GitHubEventType.ISSUE_EVENT);
   }
 

@@ -17,7 +17,7 @@ import model.HealthScore;
  */
 public class AverageCommitHeathMetric extends HealthMetric {
 
-  public AverageCommitHeathMetric() {
+  public AverageCommitHeathMetric() throws IOException {
     super(Metric.average_commit, GitHubEventType.PUSH_EVENT);
   }
 

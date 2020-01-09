@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
 import enums.Metric;
-import lombok.Builder;
 import model.GitHubEvent;
 import model.HealthScore;
 import model.Payload;
@@ -22,10 +21,9 @@ import model.RepoPullRequest;
  * Average time for a pull request to get merged If an issue has not yet merged in the search
  * period, it will be ignored in calculation
  */
-@Builder
 public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
 
-  public AveragePullRequestMergedTimeHeathMetric() {
+  public AveragePullRequestMergedTimeHeathMetric() throws IOException {
     super(Metric.average_pull_request_merge_time, GitHubEventType.PULL_REQUEST_EVENT);
   }
 

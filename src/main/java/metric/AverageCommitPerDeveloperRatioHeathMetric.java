@@ -17,7 +17,7 @@ import model.HealthScore;
  */
 public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
 
-  public AverageCommitPerDeveloperRatioHeathMetric() {
+  public AverageCommitPerDeveloperRatioHeathMetric() throws IOException {
     super(Metric.average_commit_per_developer_ratio, GitHubEventType.PUSH_EVENT);
   }
 
