@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.net.MalformedURLException;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -5,6 +7,7 @@ import enums.MetricGroup;
 import model.HealthScoreContext;
 import util.ChainUtil;
 import util.DateTimeUtil;
+import util.FileUtil;
 
 public class HealthScoreCalculator {
   public static void main(String[] args) {
@@ -32,15 +35,15 @@ public class HealthScoreCalculator {
           DateTimeUtil.buildDateTimeStringsFromInterval(dateTimeStart, dateTimeEnd);
 
       // download data parallely
-      // urls.parallelStream().forEach(t -> {
-      // try {
-      // FileUtil.downloadAsJsonFile(t);
-      // } catch (MalformedURLException e) {
-      // throw new RuntimeException("Download files failed because of URL. %s", e);
-      // } catch (IOException e) {
-      // throw new RuntimeException("Download files successfully but failed to save. %s", e);
-      // }
-      // });
+      urls.parallelStream().forEach(t -> {
+        try {
+          FileUtil.downloadAsJsonFile(t);
+        } catch (MalformedURLException ex) {
+          throw new RuntimeException(ex);
+        } catch (IOException ex) {
+          throw new RuntimeException(ex);
+        }
+      });
 
       // build context by metric
       HealthScoreContext context = HealthScoreContext.builder().metricGroup(MetricGroup.ALL_METRIC)
@@ -49,6 +52,7 @@ public class HealthScoreCalculator {
       ChainUtil.executeChain(context);
     } catch (Exception ex) {
       System.out.println(String.format("Failed to execute Chain. %s", ex));
+      ex.printStackTrace();
     }
 
     // delete files

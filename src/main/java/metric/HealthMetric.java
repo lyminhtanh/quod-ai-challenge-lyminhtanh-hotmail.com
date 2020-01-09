@@ -20,13 +20,16 @@ import util.FileUtil;
 
 public abstract class HealthMetric implements Command {
 
+  private GitHubEventType eventType;
+
   public HealthMetric(Metric metric, GitHubEventType eventType) throws IOException {
-    this.events = getEvents(eventType);
     this.metric = metric;
+    this.eventType = eventType;
   }
 
   @Override
   public boolean execute(Context context) throws Exception {
+    this.events = getEvents(eventType);
     this.context = ((HealthScoreContext) context);
 
     List<HealthScore> currentMetricHealthScores = calculate();

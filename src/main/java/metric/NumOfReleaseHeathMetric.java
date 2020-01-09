@@ -3,6 +3,7 @@ package metric;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
@@ -44,7 +45,10 @@ public class NumOfReleaseHeathMetric extends HealthMetric {
   }
 
   private Integer countRelease(List<GitHubEvent> events) {
-    return events.stream().map(GitHubEvent::getPayload).map(Payload::getRelease).map(Release::getId)
+    // TODO how can other EvenrType appears
+    System.out.println(events.toString());
+    return events.stream().map(GitHubEvent::getPayload).map(Payload::getRelease)
+        .filter(Objects::nonNull).map(Release::getId)
         .collect(Collectors.toSet()).size();
   }
 
