@@ -37,6 +37,7 @@ public class ChainUtil {
   public static void mergeHealthScores(List<HealthScore> ctxHealthScores,
       List<HealthScore> currentMetricHealthScores, Metric metric) {
 
+
     Set<Long> ctxRepoIds =
         ctxHealthScores.stream().map(HealthScore::getRepoId).collect(Collectors.toSet());
 
@@ -47,8 +48,11 @@ public class ChainUtil {
       if (ctxRepoIds.contains(repoId)) {
         ctxHealthScores.stream().filter(ctxHs -> ctxHs.getRepoId().equals(repoId)).findAny()
             // TODO update to map single
-            .ifPresent(ctxHs -> ctxHs.getSingleMetricScores().put(metric,
-                healthScore.getSingleMetricScores().get(metric)));
+            .ifPresent(ctxHs -> {
+              ctxHs.getSingleMetricScores().put(metric,
+                  healthScore.getSingleMetricScores().get(metric));
+              // additionalUpdatedFiedls.forEach(biCon -> biCon.accept(ctxHs, ););
+            });
 
       } else { // add new repo
         ctxHealthScores.add(healthScore);

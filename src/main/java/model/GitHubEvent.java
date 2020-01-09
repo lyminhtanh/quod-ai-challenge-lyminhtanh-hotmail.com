@@ -15,6 +15,8 @@ import lombok.Data;
 public class GitHubEvent {
   private String type;
 
+  private Actor actor;
+
   private Repo repo;
 
   private Payload payload;

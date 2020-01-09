@@ -3,7 +3,7 @@ package enums;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum Action {
-    OPENED("opened");
+  OPENED("opened"), MERGED("merged");
 
     private String value;
 

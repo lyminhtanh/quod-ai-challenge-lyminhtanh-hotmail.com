@@ -12,6 +12,7 @@ import org.apache.commons.chain.Context;
 
 import enums.GitHubEventType;
 import enums.Metric;
+import model.Actor;
 import model.GitHubEvent;
 import model.HealthScore;
 import model.HealthScoreContext;
@@ -20,15 +21,14 @@ import util.ChainUtil;
 import util.FileUtil;
 
 /**
- * Average number of commits (push) per day (to any branch) healthRatio =
- * total(PushEvent of project A)/total(PushEvent)
+ * Ratio of commit per developers
  */
-public class AverageCommitHeathMetric implements HealthMetric, Command {
+public class AverageCommitPerDeveloperRatioHeathMetric implements HealthMetric, Command {
 
 
   private HealthScoreContext context;
 
-  private static final Metric METRIC = Metric.average_commit;
+  private static final Metric METRIC = Metric.average_commit_per_developer_ratio;
 
 
   @Override
@@ -69,29 +69,32 @@ public class AverageCommitHeathMetric implements HealthMetric, Command {
    * @return List<HealthScore> odered descending by score
    */
   private List<HealthScore> calculateHealthScore(List<GitHubEvent> events) {
-    // collect number of commits for each repo
 
+    // collect number of commits and developers for each repo
     List<HealthScore> healthScores =
         events.stream().collect(Collectors.groupingBy(x -> x.getRepo().getId())).entrySet().stream()
             .map(this::buildHealthScore)
             .sorted(Comparator.comparing(HealthScore::getNumOfCommit, Comparator.reverseOrder()))
             .collect(Collectors.toList());
 
-    // select repo has max number of commits
-    double maxCommit =
-        healthScores.stream().mapToDouble(HealthScore::getNumOfCommit).max().getAsDouble();
-
-    // update score
-    healthScores.forEach(healthScore -> {
-      healthScore.getSingleMetricScores().put(METRIC, healthScore.getNumOfCommit() / maxCommit);
-    });
-
     return healthScores;
   }
 
   private HealthScore buildHealthScore(Entry<Long, List<GitHubEvent>> entry) {
-    return HealthScore.commonBuilder(this.context.getMetricGroup()).repoId(entry.getKey())
-        .numOfCommit(entry.getValue().size()).build();
+    HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
+        .repoId(entry.getKey())
+        .numOfCommit(entry.getValue().size()).numOfDeveloper(countNumOfDeveloper(entry.getValue()))
+        .build();
+
+    healthScore.getSingleMetricScores().put(METRIC,
+        (double) healthScore.getNumOfCommit() / healthScore.getNumOfDeveloper());
+
+    return healthScore;
+  }
+
+  private Integer countNumOfDeveloper(List<GitHubEvent> events) {
+    return events.stream().map(GitHubEvent::getActor).map(Actor::getId).collect(Collectors.toSet())
+        .size();
   }
 
 

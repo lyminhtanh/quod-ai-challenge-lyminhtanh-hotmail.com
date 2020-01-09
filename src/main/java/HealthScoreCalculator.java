@@ -8,11 +8,11 @@ import enums.MetricGroup;
 import model.HealthScoreContext;
 import util.ChainUtil;
 import util.DateTimeUtil;
-import util.FileUtil;
 
 public class HealthScoreCalculator {
   public static void main(String[] args) throws RunnerException, IOException {
 
+    // TODO benchmark
     // Options opt =
     // new OptionsBuilder().include(HealthScoreCalculator.class.getSimpleName()).forks(1).build();
     //
@@ -32,11 +32,11 @@ public class HealthScoreCalculator {
         DateTimeUtil.buildDateTimeStringsFromInterval(dateTimeStart, dateTimeEnd);
 
     // download data parallely
-    urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
+    // urls.parallelStream().forEach(FileUtil::downloadAsJsonFile);
 
     //build context by metric
     HealthScoreContext context = HealthScoreContext.builder()
-        .metricGroup(MetricGroup.all_metric).dateTimeStart(dateTimeStart).dateTimeEnd(dateTimeEnd)
+        .metricGroup(MetricGroup.ALL_METRIC).dateTimeStart(dateTimeStart).dateTimeEnd(dateTimeEnd)
         .build();
 
     // process data

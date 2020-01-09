@@ -1,19 +1,15 @@
 package metric;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.commons.chain.Command;
 import org.apache.commons.chain.Context;
 
-import enums.Action;
 import enums.GitHubEventType;
+import enums.IssueState;
 import enums.Metric;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,9 +33,9 @@ import util.FileUtil;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command {
+public class AverageOpenedToClosedIssueHeathMetric implements HealthMetric, Command {
 
-  private static final Metric METRIC = Metric.average_issue_opened_time;
+  private static final Metric METRIC = Metric.average_opened_to_closed_issue_ratio;
 
   private HealthScoreContext context;
 
@@ -75,11 +71,8 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
     Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
         events.stream().collect(Collectors.groupingBy(this::buildRepoIssueKey));
 
-    groupedByRepoIssue.values().stream().filter(event -> event.size() > 1).forEach(event -> events
-        .sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
-
-    Map<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().stream()
-        .collect(Collectors.toMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+    Map<RepoIssue, IssueState> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().stream()
+        .collect(Collectors.toMap(entry -> entry.getKey(), this::getIssueState));
 
     List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().stream()
         .collect(Collectors.groupingBy(entry -> entry.getKey().getRepoId())).entrySet().stream()
@@ -94,7 +87,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
    * @return
    */
   private HealthScore calculateHealthScore(
-      Map.Entry<Long, List<Map.Entry<RepoIssue, Long>>> entry) {
+      Map.Entry<Long, List<Map.Entry<RepoIssue, IssueState>>> entry) {
     double score = calculateHealthScore(entry.getValue());
 
     return buildHealthScore(entry.getKey(), score);
@@ -102,7 +95,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
 
   private HealthScore buildHealthScore(Long repoId, double score) {
     HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
-        .repoId(repoId).score(score).build();
+        .repoId(repoId).build();
 
     healthScore.getSingleMetricScores().put(METRIC, score);
 
@@ -114,37 +107,11 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
    * @param entry
    * @return
    */
-  private Long calculateOpenTimeInMinutes(Map.Entry<RepoIssue, List<GitHubEvent>> entry) {
-    final LocalDateTime openedAt = Optional.ofNullable(entry.getValue().get(0))
-        .map(GitHubEvent::getPayload).map(Payload::getIssue).map(Issue::getCreatedAt)
-        .orElseThrow(() -> new IllegalStateException(
-            String.format("No created_at found for Issue: %d", entry.getKey().getIssueId())));
+  private IssueState getIssueState(Map.Entry<RepoIssue, List<GitHubEvent>> entry) {
+    boolean isClosed = entry.getValue().stream().map(GitHubEvent::getPayload).map(Payload::getIssue)
+        .map(Issue::getState).anyMatch(IssueState.CLOSED.name()::equalsIgnoreCase);
 
-    final LocalDateTime nonOpenedAt = getNonOpenActionCreatedAt(entry.getValue());
-    Duration duration = Duration.between(openedAt, nonOpenedAt);
-
-    return duration.toMinutes();
-  }
-
-  private LocalDateTime getNonOpenActionCreatedAt(List<GitHubEvent> events) {
-    boolean hasOpenAction = hasOpenedAction(events);
-
-    int nonOpenedIndex = 0;
-
-    if (hasOpenAction) {
-      if (events.size() == 1) {
-        return this.context.getDateTimeEnd().plusHours(1);
-      }
-      nonOpenedIndex = 1;
-    }
-
-    return events.get(nonOpenedIndex).getCreatedAt();
-
-  }
-
-  private boolean hasOpenedAction(List<GitHubEvent> events) {
-    return events.stream().map(GitHubEvent::getPayload).map(Payload::getAction)
-        .anyMatch(Action.OPENED.value()::equals);
+    return isClosed ? IssueState.CLOSED : IssueState.OPENED;
   }
 
   private RepoIssue buildRepoIssueKey(GitHubEvent event) {
@@ -156,18 +123,18 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
    *
    * @return List<HealthScore> odered descending by score
    */
-  private double calculateHealthScore(List<Map.Entry<RepoIssue, Long>> entries) {
+  private double calculateHealthScore(List<Map.Entry<RepoIssue, IssueState>> entries) {
     if (entries.size() == 0) {
       return 0;
     }
-    Long avgOpenTime =
-        entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).sum() / entries.size();
-    Long minOpenTime =
-        entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).min().getAsLong();
-    if (minOpenTime == 0) {
+    long numOfClosedIssue =
+        entries.stream().map(Map.Entry::getValue).filter(IssueState.CLOSED::equals).count();
+
+    if (numOfClosedIssue == 0) {
       return Double.MAX_VALUE;
     }
-    return (double) avgOpenTime / minOpenTime;
+    
+    return (double)(entries.size() - numOfClosedIssue)/numOfClosedIssue;
   }
 
 }

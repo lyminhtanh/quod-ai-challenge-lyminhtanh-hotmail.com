@@ -3,16 +3,15 @@ package metric;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.commons.chain.Command;
 import org.apache.commons.chain.Context;
 
-import enums.Action;
 import enums.GitHubEventType;
 import enums.Metric;
 import lombok.AllArgsConstructor;
@@ -22,24 +21,24 @@ import lombok.NoArgsConstructor;
 import model.GitHubEvent;
 import model.HealthScore;
 import model.HealthScoreContext;
-import model.Issue;
 import model.Payload;
+import model.PullRequest;
 import model.Repo;
-import model.RepoIssue;
+import model.RepoPullRequest;
 import util.ChainUtil;
 import util.FileUtil;
 
 /**
- * Average time that an issue remains opened healthRatio = total(PushEvent of
- * project A)/total(PushEvent)
+ * Average time for a pull request to get merged If an issue has not yet merged in the search
+ * period, it will be ignored in calculation
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command {
+public class AveragePullRequestMergedTimeHeathMetric implements HealthMetric, Command {
 
-  private static final Metric METRIC = Metric.average_issue_opened_time;
+  private static final Metric METRIC = Metric.average_pull_request_merge_time;
 
   private HealthScoreContext context;
 
@@ -61,7 +60,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
 
     List<String> lines = new ArrayList<>();
     for (String filePath : FileUtil.listJsonFiles()) {
-      lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.ISSUE_EVENT));
+      lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.PULL_REQUEST_EVENT));
     }
 
     List<GitHubEvent> events =
@@ -72,14 +71,12 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
 
     this.context.getRepoNames().putAll(repoNames);
 
-    Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
-        events.stream().collect(Collectors.groupingBy(this::buildRepoIssueKey));
+    Map<RepoPullRequest, List<GitHubEvent>> groupedByRepoPullRequest =
+        events.stream().collect(Collectors.groupingBy(this::buildRepoPullRequestKey));
 
-    groupedByRepoIssue.values().stream().filter(event -> event.size() > 1).forEach(event -> events
-        .sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
-
-    Map<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().stream()
-        .collect(Collectors.toMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+    Map<RepoPullRequest, Long> timeGroupedByRepoIssue =
+        groupedByRepoPullRequest.entrySet().stream()
+            .collect(Collectors.toMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
 
     List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().stream()
         .collect(Collectors.groupingBy(entry -> entry.getKey().getRepoId())).entrySet().stream()
@@ -94,7 +91,7 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
    * @return
    */
   private HealthScore calculateHealthScore(
-      Map.Entry<Long, List<Map.Entry<RepoIssue, Long>>> entry) {
+      Map.Entry<Long, List<Map.Entry<RepoPullRequest, Long>>> entry) {
     double score = calculateHealthScore(entry.getValue());
 
     return buildHealthScore(entry.getKey(), score);
@@ -114,41 +111,35 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
    * @param entry
    * @return
    */
-  private Long calculateOpenTimeInMinutes(Map.Entry<RepoIssue, List<GitHubEvent>> entry) {
+  private Long calculateOpenTimeInMinutes(Map.Entry<RepoPullRequest, List<GitHubEvent>> entry) {
     final LocalDateTime openedAt = Optional.ofNullable(entry.getValue().get(0))
-        .map(GitHubEvent::getPayload).map(Payload::getIssue).map(Issue::getCreatedAt)
-        .orElseThrow(() -> new IllegalStateException(
-            String.format("No created_at found for Issue: %d", entry.getKey().getIssueId())));
+        .map(GitHubEvent::getPayload).map(Payload::getPullRequest).map(PullRequest::getCreatedAt)
+        .orElseThrow(() -> new IllegalStateException(String
+            .format("No created_at found for PullRequest: %d", entry.getKey().getPullRequestId())));
 
-    final LocalDateTime nonOpenedAt = getNonOpenActionCreatedAt(entry.getValue());
-    Duration duration = Duration.between(openedAt, nonOpenedAt);
+    final LocalDateTime mergedAt = getMergedAt(entry.getValue());
+
+    // the PR has not been merged yet
+    if (mergedAt == null) {
+      return Long.valueOf(-1);
+    }
+
+    Duration duration = Duration.between(openedAt, mergedAt);
 
     return duration.toMinutes();
   }
 
-  private LocalDateTime getNonOpenActionCreatedAt(List<GitHubEvent> events) {
-    boolean hasOpenAction = hasOpenedAction(events);
+  private LocalDateTime getMergedAt(List<GitHubEvent> events) {
 
-    int nonOpenedIndex = 0;
-
-    if (hasOpenAction) {
-      if (events.size() == 1) {
-        return this.context.getDateTimeEnd().plusHours(1);
-      }
-      nonOpenedIndex = 1;
-    }
-
-    return events.get(nonOpenedIndex).getCreatedAt();
+    return events.stream().map(GitHubEvent::getPayload).map(Payload::getPullRequest)
+        .map(PullRequest::getMergedAt).filter(Objects::nonNull).findAny()
+        .orElse(null);
 
   }
 
-  private boolean hasOpenedAction(List<GitHubEvent> events) {
-    return events.stream().map(GitHubEvent::getPayload).map(Payload::getAction)
-        .anyMatch(Action.OPENED.value()::equals);
-  }
-
-  private RepoIssue buildRepoIssueKey(GitHubEvent event) {
-    return new RepoIssue(event.getRepo().getId(), event.getPayload().getIssue().getId());
+  private RepoPullRequest buildRepoPullRequestKey(GitHubEvent event) {
+    return new RepoPullRequest(event.getRepo().getId(),
+        event.getPayload().getPullRequest().getId());
   }
 
   /**
@@ -156,18 +147,26 @@ public class AverageIssueOpenedTimeHeathMetric implements HealthMetric, Command 
    *
    * @return List<HealthScore> odered descending by score
    */
-  private double calculateHealthScore(List<Map.Entry<RepoIssue, Long>> entries) {
-    if (entries.size() == 0) {
-      return 0;
+  private double calculateHealthScore(List<Map.Entry<RepoPullRequest, Long>> entries) {
+
+    long sum = entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).filter(n -> n >= 0)
+        .sum();
+    long count = entries.stream().map(Map.Entry::getValue).filter(n -> n >= 0).count();
+
+    if (count == 0) {
+      return 0.0;
     }
-    Long avgOpenTime =
-        entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).sum() / entries.size();
-    Long minOpenTime =
-        entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).min().getAsLong();
-    if (minOpenTime == 0) {
+
+    Long avgMergedTime =
+        sum / count;
+    Long minMergedTime =
+        entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).filter(n -> n >= 0)
+            .min().getAsLong();
+
+    if (minMergedTime == 0) {
       return Double.MAX_VALUE;
     }
-    return (double) avgOpenTime / minOpenTime;
+    return (double) avgMergedTime / minMergedTime;
   }
 
 }

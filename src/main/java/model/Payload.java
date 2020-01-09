@@ -4,12 +4,14 @@ import lombok.Data;
 
 @Data
 public class Payload {
-    private long pushId;
+  private long pushId;
 
-    private int size;
+  private int size;
 
-    private Issue issue;
+  private Issue issue;
 
-    private String action;
+  private String action;
+
+  private PullRequest pullRequest;
 
 }

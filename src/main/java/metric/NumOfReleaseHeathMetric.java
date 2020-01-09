@@ -23,12 +23,12 @@ import util.FileUtil;
  * Average number of commits (push) per day (to any branch) healthRatio =
  * total(PushEvent of project A)/total(PushEvent)
  */
-public class AverageCommitHeathMetric implements HealthMetric, Command {
+public class NumOfReleaseHeathMetric implements HealthMetric, Command {
 
 
   private HealthScoreContext context;
 
-  private static final Metric METRIC = Metric.average_commit;
+  private static final Metric METRIC = Metric.num_of_releases;
 
 
   @Override
@@ -48,7 +48,7 @@ public class AverageCommitHeathMetric implements HealthMetric, Command {
     List<String> lines = new ArrayList<>();
 
     for (String filePath : FileUtil.listJsonFiles()) {
-      lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.PUSH_EVENT));
+      lines.addAll(FileUtil.readLinesByEventType(filePath, GitHubEventType.RELEASE_EVENT));
     }
 
     List<GitHubEvent> events =

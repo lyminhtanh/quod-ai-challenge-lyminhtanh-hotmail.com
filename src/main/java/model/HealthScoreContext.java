@@ -8,7 +8,6 @@ import java.util.Map;
 
 import org.apache.commons.chain.impl.ContextBase;
 
-import enums.Metric;
 import enums.MetricGroup;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,7 +17,6 @@ import lombok.Setter;
 @Setter
 @Builder
 public class HealthScoreContext extends ContextBase {
-
   /**
    *
    */
