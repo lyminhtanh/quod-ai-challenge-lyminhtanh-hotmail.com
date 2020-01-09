@@ -25,6 +25,7 @@ import constant.Constant;
 import enums.CsvHeader;
 import enums.GitHubEventType;
 import enums.Metric;
+import model.GitHubEvent;
 
 public class FileUtil {
   /**
@@ -63,12 +64,17 @@ public class FileUtil {
   public static List<String> readLinesByEventType(final String filePath,
       final GitHubEventType eventType) throws IOException {
     List<String> lines = new ArrayList<>();
-    final String eventTypeStr = eventType.value();
+    final String eventTypeStr = String.format("\"type\":\"%s\"", eventType.value());
     try (LineIterator it = FileUtils.lineIterator(new File(filePath), "UTF-8")) {
       while (it.hasNext()) {
         String line = it.nextLine();
         // do something with line
         if (line.contains(eventTypeStr)) {
+          GitHubEvent event = GitHubEvent.fromJson(line);
+          if (!event.getType().equals(eventType.value())) {
+            System.out.println(line);
+
+          }
           lines.add(line);
         }
       }

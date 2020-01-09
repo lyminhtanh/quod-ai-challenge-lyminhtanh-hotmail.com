@@ -65,6 +65,9 @@ public abstract class HealthMetric implements Command {
               .map(GitHubEvent::fromJson).collect(Collectors.toCollection(Vector::new));
       events.addAll(readLinesByEventType);
     }
+
+    events.removeIf(event -> !eventType.name().equals(event.getType()));
+
     return events;
 
   }
