@@ -3,6 +3,8 @@ package metric;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Vector;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
@@ -28,16 +30,18 @@ public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
   @Override
   public List<HealthScore> calculate() throws IOException {
 
-    Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
-        events.stream().collect(Collectors.groupingBy(this::buildRepoIssueKey));
+    ConcurrentMap<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
+        events.parallelStream().collect(Collectors.groupingByConcurrent(this::buildRepoIssueKey));
 
-    Map<RepoIssue, IssueState> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().stream()
-        .collect(Collectors.toMap(entry -> entry.getKey(), this::getIssueState));
+    ConcurrentMap<RepoIssue, IssueState> timeGroupedByRepoIssue =
+        groupedByRepoIssue.entrySet().parallelStream()
+            .collect(Collectors.toConcurrentMap(entry -> entry.getKey(), this::getIssueState));
 
-    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().stream()
-        .collect(Collectors.groupingBy(entry -> entry.getKey().getRepoId())).entrySet().stream()
+    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().parallelStream()
+        .collect(Collectors.groupingByConcurrent(entry -> entry.getKey().getRepoId())).entrySet()
+        .parallelStream()
         .map(entry -> calculateHealthScore(entry))
-        .collect(Collectors.toList());
+        .collect(Collectors.toCollection(Vector::new));
 
     return healthScores;
   }
@@ -68,7 +72,8 @@ public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
    * @return
    */
   private IssueState getIssueState(Map.Entry<RepoIssue, List<GitHubEvent>> entry) {
-    boolean isClosed = entry.getValue().stream().map(GitHubEvent::getPayload).map(Payload::getIssue)
+    boolean isClosed =
+        entry.getValue().parallelStream().map(GitHubEvent::getPayload).map(Payload::getIssue)
         .map(Issue::getState).anyMatch(IssueState.CLOSED.name()::equalsIgnoreCase);
 
     return isClosed ? IssueState.CLOSED : IssueState.OPENED;
@@ -88,7 +93,7 @@ public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
       return 0;
     }
     long numOfClosedIssue =
-        entries.stream().map(Map.Entry::getValue).filter(IssueState.CLOSED::equals).count();
+        entries.parallelStream().map(Map.Entry::getValue).filter(IssueState.CLOSED::equals).count();
 
     if (numOfClosedIssue == 0) {
       return Double.MAX_VALUE;

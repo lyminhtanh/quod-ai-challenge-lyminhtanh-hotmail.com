@@ -26,7 +26,6 @@ import enums.CsvHeader;
 import enums.GitHubEventType;
 import enums.Metric;
 import lombok.extern.log4j.Log4j2;
-import model.GitHubEvent;
 
 @Log4j2
 public class FileUtil {
@@ -39,22 +38,21 @@ public class FileUtil {
    */
   public static void downloadAsJsonFile(final String dateTimeString)
       throws MalformedURLException, IOException {
-      log.info(
-          String.format("--Downloading: %s", String.format(Constant.BASE_URL, dateTimeString)));
+    log.info(String.format("--Downloading: %s", String.format(Constant.BASE_URL, dateTimeString)));
 
-      final String pathname = String.format(Constant.BASE_UNZIPPED_FILE_NAME, dateTimeString);
-      final File downloadedFile = new File(pathname);
+    final String pathname = String.format(Constant.BASE_UNZIPPED_FILE_NAME, dateTimeString);
+    final File downloadedFile = new File(pathname);
 
-      final URLConnection conn =
-          new URL(String.format(Constant.BASE_URL, dateTimeString)).openConnection();
-      conn.setRequestProperty("User-Agent",
-          "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:31.0) Gecko/20100101 Firefox/31.0");
-      conn.connect();
+    final URLConnection conn =
+        new URL(String.format(Constant.BASE_URL, dateTimeString)).openConnection();
+    conn.setRequestProperty("User-Agent",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:31.0) Gecko/20100101 Firefox/31.0");
+    conn.connect();
 
-      // decompress gzip then saving to file
-      FileUtils.copyInputStreamToFile(new GZIPInputStream(conn.getInputStream()), downloadedFile);
+    // decompress gzip then saving to file
+    FileUtils.copyInputStreamToFile(new GZIPInputStream(conn.getInputStream()), downloadedFile);
 
-      log.info(String.format("-- Saved to: %s.json", dateTimeString));
+    log.info(String.format("-- Saved to: %s.json", dateTimeString));
   }
 
   /**
@@ -72,11 +70,6 @@ public class FileUtil {
         String line = it.nextLine();
         // do something with line
         if (line.contains(eventTypeStr)) {
-          GitHubEvent event = GitHubEvent.fromJson(line);
-          if (!event.getType().equals(eventType.value())) {
-            log.debug(line);
-
-          }
           lines.add(line);
         }
       }
@@ -100,25 +93,18 @@ public class FileUtil {
   }
 
   /**
-   * list all Json Files
+   * delete all Json Files
    *
    * @return Set<String>
    * @throws IOException
    */
-  // public static Set<String> deleteJsonFiles() {
-  // try (Stream<Path> stream = Files.walk(Paths.get(""), 1)) {
-  // return stream.filter(file -> !Files.isDirectory(file))
-  // .map(Path::getFileName)
-  // .filter(fileName -> fileName.toString().endsWith(".json"))
-  // .map(Path::toFile)
-  // .forEach(File::delete);
-  // .map(Path::toString)
-  // .collect(Collectors.toSet());
-  // } catch (IOException ex) {
-  // log.info(String.format("Failed list Json files. %s", ex));
-  // }
-  // return new HashSet<>();
-  // }
+  public static void deleteJsonFiles() throws IOException {
+    try (Stream<Path> stream = Files.walk(Paths.get(""), 1)) {
+      stream.filter(file -> !Files.isDirectory(file)).map(Path::getFileName)
+          .filter(fileName -> fileName.toString().endsWith(".json")).map(Path::toFile)
+          .forEach(File::delete);
+    }
+  }
 
   /**
    * create CSV File from data rows
@@ -135,6 +121,7 @@ public class FileUtil {
 
     try (CSVPrinter printer =
         new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(headers.toArray(new String[0])))) {
+      // Stream.of(rows).parallel().forEach(printer::printRecord);
       for (String[] row : rows) {
         printer.printRecord(row);
       }

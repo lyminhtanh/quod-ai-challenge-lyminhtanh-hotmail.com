@@ -2,7 +2,7 @@ package metric;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.commons.chain.Context;
 import org.apache.commons.chain.Filter;
@@ -12,8 +12,8 @@ import model.HealthScoreContext;
 import util.NormalizeUtil;
 
 /**
- * Average number of commits (push) per day (to any branch) healthRatio =
- * total(PushEvent of project A)/total(PushEvent)
+ * Average number of commits (push) per day (to any branch) healthRatio = total(PushEvent of project
+ * A)/total(PushEvent)
  */
 public class HealthScoreAggregator implements Filter {
 
@@ -32,8 +32,8 @@ public class HealthScoreAggregator implements Filter {
         Comparator.nullsLast(Comparator.reverseOrder())));
 
     // update repo names
-    Map<Long, String> repoNameMap = ((HealthScoreContext) context).getRepoNames();
-    healthScores.forEach(healthScore -> {
+    ConcurrentMap<Long, String> repoNameMap = ((HealthScoreContext) context).getRepoNames();
+    healthScores.parallelStream().forEach(healthScore -> {
       healthScore.setRepoName(repoNameMap.get(healthScore.getRepoId()));
     });
     // update to context

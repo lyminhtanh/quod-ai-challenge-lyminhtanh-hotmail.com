@@ -3,6 +3,7 @@ package metric;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Vector;
 import java.util.stream.Collectors;
 
@@ -60,19 +61,33 @@ public abstract class HealthMetric implements Command {
 
   protected List<GitHubEvent> events;
 
-  protected List<GitHubEvent> getEvents(GitHubEventType eventType) throws IOException {
+  protected List<GitHubEvent> getEvents(GitHubEventType eventType) throws Exception {
     List<GitHubEvent> events = new Vector<>();
-    for (String filePath : FileUtil.listJsonFiles()) {
-      List<GitHubEvent> readLinesByEventType =
-          FileUtil.readLinesByEventType(filePath, eventType).parallelStream()
-              .map(GitHubEvent::fromJson).collect(Collectors.toCollection(Vector::new));
+
+    FileUtil.listJsonFiles().parallelStream().forEach(filePath -> {
+      List<GitHubEvent> readLinesByEventType;
+      try {
+        readLinesByEventType = FileUtil.readLinesByEventType(filePath, eventType).parallelStream()
+            .map(this::parseGitHubEvent).filter(Objects::nonNull)
+            .collect(Collectors.toCollection(Vector::new));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
       events.addAll(readLinesByEventType);
-    }
+    });
 
     events.removeIf(event -> !eventType.value().equals(event.getType()));
-
+    log.info("- Events count {} : {} ", this.eventType, events.size());
     return events;
 
+  }
+
+  private GitHubEvent parseGitHubEvent(String t) {
+    try {
+      return GitHubEvent.fromJson(t);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
 }

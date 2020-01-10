@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Vector;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
@@ -30,17 +32,19 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
   @Override
   public List<HealthScore> calculate() throws IOException {
 
-    Map<RepoPullRequest, List<GitHubEvent>> groupedByRepoPullRequest =
-        events.stream().collect(Collectors.groupingBy(this::buildRepoPullRequestKey));
+    ConcurrentMap<RepoPullRequest, List<GitHubEvent>> groupedByRepoPullRequest =
+        events.parallelStream()
+            .collect(Collectors.groupingByConcurrent(this::buildRepoPullRequestKey));
 
-    Map<RepoPullRequest, Long> timeGroupedByRepoIssue =
-        groupedByRepoPullRequest.entrySet().stream()
-            .collect(Collectors.toMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+    ConcurrentMap<RepoPullRequest, Long> timeGroupedByRepoIssue =
+        groupedByRepoPullRequest.entrySet().parallelStream().collect(
+            Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
 
-    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().stream()
-        .collect(Collectors.groupingBy(entry -> entry.getKey().getRepoId())).entrySet().stream()
+    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().parallelStream()
+        .collect(Collectors.groupingByConcurrent(entry -> entry.getKey().getRepoId())).entrySet()
+        .parallelStream()
         .map(entry -> calculateHealthScore(entry))
-        .collect(Collectors.toList());
+        .collect(Collectors.toCollection(Vector::new));
 
     return healthScores;
   }
@@ -90,7 +94,7 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
 
   private LocalDateTime getMergedAt(List<GitHubEvent> events) {
 
-    return events.stream().map(GitHubEvent::getPayload).map(Payload::getPullRequest)
+    return events.parallelStream().map(GitHubEvent::getPayload).map(Payload::getPullRequest)
         .map(PullRequest::getMergedAt).filter(Objects::nonNull).findAny()
         .orElse(null);
 
@@ -108,9 +112,10 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
    */
   private double calculateHealthScore(List<Map.Entry<RepoPullRequest, Long>> entries) {
 
-    long sum = entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).filter(n -> n >= 0)
+    long sum = entries.parallelStream().map(Map.Entry::getValue).mapToLong(Long::longValue)
+        .filter(n -> n >= 0)
         .sum();
-    long count = entries.stream().map(Map.Entry::getValue).filter(n -> n >= 0).count();
+    long count = entries.parallelStream().map(Map.Entry::getValue).filter(n -> n >= 0).count();
 
     if (count == 0) {
       return 0.0;
@@ -119,7 +124,8 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
     Long avgMergedTime =
         sum / count;
     Long minMergedTime =
-        entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).filter(n -> n >= 0)
+        entries.parallelStream().map(Map.Entry::getValue).mapToLong(Long::longValue)
+            .filter(n -> n >= 0)
             .min().getAsLong();
 
     if (minMergedTime == 0) {

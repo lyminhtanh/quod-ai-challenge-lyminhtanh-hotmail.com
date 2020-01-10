@@ -1,9 +1,9 @@
 package model;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -32,7 +32,7 @@ public class HealthScore {
   private Integer numOfRelease;
 
   @Builder.Default
-  private Map<Metric, Double> singleMetricScores = new HashMap<>();
+  private ConcurrentMap<Metric, Double> singleMetricScores = new ConcurrentHashMap<>();
 
   private Double score;
 
@@ -57,8 +57,8 @@ public class HealthScore {
 
   }
 
-  private static Map<Metric, Double> initSingleMetricMap(Strategy metricGroup) {
-    Map<Metric, Double> singleMetricScores = new HashMap<>();
+  private static ConcurrentMap<Metric, Double> initSingleMetricMap(Strategy metricGroup) {
+    ConcurrentMap<Metric, Double> singleMetricScores = new ConcurrentHashMap<>();
 
     // init by metrics
     metricGroup.getMetrics()

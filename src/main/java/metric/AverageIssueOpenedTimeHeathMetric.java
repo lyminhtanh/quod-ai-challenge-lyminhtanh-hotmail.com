@@ -7,6 +7,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Vector;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import enums.Action;
@@ -31,19 +33,19 @@ public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
   @Override
   public List<HealthScore> calculate() throws IOException {
 
-    Map<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
-        events.stream().collect(Collectors.groupingBy(this::buildRepoIssueKey));
+    ConcurrentMap<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
+        events.parallelStream().collect(Collectors.groupingByConcurrent(this::buildRepoIssueKey));
 
-    groupedByRepoIssue.values().stream().filter(event -> event.size() > 1).forEach(event -> events
+    groupedByRepoIssue.values().parallelStream().filter(event -> event.size() > 1).forEach(event -> events
         .sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
 
-    Map<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().stream()
-        .collect(Collectors.toMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+    ConcurrentMap<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().parallelStream()
+        .collect(Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
 
-    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().stream()
-        .collect(Collectors.groupingBy(entry -> entry.getKey().getRepoId())).entrySet().stream()
+    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().parallelStream()
+        .collect(Collectors.groupingByConcurrent(entry -> entry.getKey().getRepoId())).entrySet().parallelStream()
         .map(entry -> calculateHealthScore(entry))
-        .collect(Collectors.toList());
+        .collect(Collectors.toCollection(Vector::new));
 
     return healthScores;
   }

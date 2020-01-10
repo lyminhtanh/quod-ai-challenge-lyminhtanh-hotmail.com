@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Vector;
 import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
@@ -27,8 +28,9 @@ public class NumOfReleaseHeathMetric extends HealthMetric {
   public List<HealthScore> calculate() throws IOException {
 
     List<HealthScore> healthScores =
-        events.stream().collect(Collectors.groupingBy(x -> x.getRepo().getId())).entrySet().stream()
-            .map(this::buildHealthScore).collect(Collectors.toList());
+        events.parallelStream().collect(Collectors.groupingByConcurrent(x -> x.getRepo().getId()))
+            .entrySet().parallelStream().map(this::buildHealthScore)
+            .collect(Collectors.toCollection(Vector::new));
 
     return healthScores;
   }

@@ -46,12 +46,15 @@ public class HealthScoreCalculator {
       });
 
       ChainUtil.executeChain(context);
+
+      // delete files
+      // FileUtil.deleteJsonFiles();
+
     } catch (Exception ex) {
       log.error(String.format("Failed to execute Chain.", ex));
-      ex.printStackTrace();
     }
 
-    // delete files
+
   }
 
   private static HealthScoreContext buildContext(String[] args) {

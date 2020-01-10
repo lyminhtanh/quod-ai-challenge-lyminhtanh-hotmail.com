@@ -2,15 +2,18 @@ package util;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Vector;
 import java.util.stream.Collectors;
 
 import org.apache.commons.chain.Command;
 
 import enums.Metric;
+import lombok.extern.log4j.Log4j2;
 import metric.MetricCatalog;
 import model.HealthScore;
 import model.HealthScoreContext;
 
+@Log4j2
 public class ChainUtil {
 
   /**
@@ -20,8 +23,8 @@ public class ChainUtil {
    * @throws Exception
    */
   public static void executeChain(HealthScoreContext context) throws Exception {
-      Command allMetricChain = new MetricCatalog().getCommand(context.getMetricGroup().name());
-      allMetricChain.execute(context);
+    Command allMetricChain = new MetricCatalog().getCommand(context.getMetricGroup().name());
+    allMetricChain.execute(context);
   }
 
   /**
@@ -34,15 +37,16 @@ public class ChainUtil {
       List<HealthScore> currentMetricHealthScores, Metric metric) {
 
 
-    Set<Long> ctxRepoIds =
+    final Set<Long> ctxRepoIds =
         ctxHealthScores.stream().map(HealthScore::getRepoId).collect(Collectors.toSet());
 
-    for (HealthScore healthScore : currentMetricHealthScores) {
+    List<HealthScore> additionalHealthScores = new Vector<>();
+    currentMetricHealthScores.parallelStream().forEach(healthScore -> {
       Long repoId = healthScore.getRepoId();
 
       // multiple score if repo exists
       if (ctxRepoIds.contains(repoId)) {
-        ctxHealthScores.stream().filter(ctxHs -> ctxHs.getRepoId().equals(repoId)).findAny()
+        ctxHealthScores.parallelStream().filter(ctxHs -> ctxHs.getRepoId().equals(repoId)).findAny()
             // TODO update to map single
             .ifPresent(ctxHs -> {
               ctxHs.getSingleMetricScores().put(metric,
@@ -51,8 +55,11 @@ public class ChainUtil {
             });
 
       } else { // add new repo
-        ctxHealthScores.add(healthScore);
+        additionalHealthScores.add(healthScore);
       }
-    }
+    });
+
+    // add all new repo
+    ctxHealthScores.addAll(additionalHealthScores);
   }
 }
