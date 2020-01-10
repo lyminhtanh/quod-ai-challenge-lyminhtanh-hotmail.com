@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
@@ -26,11 +27,9 @@ public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
   @Override
   public List<HealthScore> calculate() throws IOException {
     log.debug("--start calculate");
-    List<HealthScore> healthScores =
-        events.parallelStream().collect(Collectors.groupingByConcurrent(x -> x.getRepo().getId()))
-            .entrySet().stream()
-            .map(this::buildHealthScore)
-            .collect(Collectors.toCollection(Vector::new));
+    List<HealthScore> healthScores = events.parallelStream()
+        .collect(Collectors.groupingByConcurrent(x -> x.getRepo().getId())).entrySet().stream()
+        .map(this::buildHealthScore).collect(Collectors.toCollection(Vector::new));
     log.debug("--end calculate");
     return healthScores;
   }
@@ -39,25 +38,24 @@ public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
     log.debug("--start count");
 
     HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
-        .repoId(entry.getKey())
-        .numOfCommit(entry.getValue().size())
-        .numOfDeveloper(countNumOfDeveloper(entry.getValue()).intValue())
-        .build();
+        .repoId(entry.getKey()).numOfCommit(entry.getValue().size())
+        .numOfDeveloper(countNumOfDeveloper(entry.getValue())).build();
 
     log.debug("--end count");
 
-    healthScore.getSingleMetricScores().put(this.metric,
-        (double) healthScore.getNumOfCommit() / healthScore.getNumOfDeveloper());
+    double metricScore = 0.0;
+    if (healthScore.getNumOfDeveloper() > 0) {
+      metricScore = (double) healthScore.getNumOfCommit() / healthScore.getNumOfDeveloper();
+    }
+
+    healthScore.getSingleMetricScores().put(this.metric, metricScore);
 
     return healthScore;
   }
 
-  private Long countNumOfDeveloper(List<GitHubEvent> events) {
+  private int countNumOfDeveloper(List<GitHubEvent> events) {
     return events.parallelStream().map(GitHubEvent::getActor).map(Actor::getId)
-        .collect(Collectors.toCollection(Vector::new)).parallelStream().distinct().count();
+        .collect(Collectors.toCollection(() -> ConcurrentHashMap.newKeySet())).size();
   }
-
-
-
 
 }
