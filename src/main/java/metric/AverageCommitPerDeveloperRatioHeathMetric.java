@@ -3,7 +3,6 @@ package metric;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -24,17 +23,13 @@ public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
     super(Metric.average_commit_per_developer_ratio, GitHubEventType.PUSH_EVENT);
   }
 
+
+  /**
+   * @param entry
+   * @return
+   */
   @Override
-  public List<HealthScore> calculate() throws IOException {
-    log.debug("--start calculate");
-
-    List<HealthScore> healthScores = events.entrySet().parallelStream()
-        .map(this::buildHealthScore).collect(Collectors.toCollection(Vector::new));
-    log.debug("--end calculate");
-    return healthScores;
-  }
-
-  private HealthScore buildHealthScore(Entry<Long, List<GitHubEvent>> entry) {
+  protected HealthScore calculateHealthScore(Entry<Long, List<GitHubEvent>> entry) {
     log.debug("--start count");
 
     HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())

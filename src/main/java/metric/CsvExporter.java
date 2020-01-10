@@ -1,7 +1,9 @@
 package metric;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.commons.chain.Context;
@@ -28,8 +30,14 @@ public class CsvExporter implements Filter {
   @Override
   public boolean postprocess(Context context, Exception exception) {
     HealthScoreContext healthScoreContext = (HealthScoreContext) context;
-    List<String[]> csvRows = healthScoreContext.getHealthScores().stream()
-        .map(HealthScore::toCsvRow).collect(Collectors.toList());
+    List<String[]> csvRows = healthScoreContext.getHealthScores()
+        .entrySet()
+        .stream()
+        .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+        .limit(Constant.MAX_OUTPUT_ROW)
+        .map(Map.Entry::getValue)
+        .map(HealthScore::toCsvRow)
+        .collect(Collectors.toList());
 
     try {
       FileUtil.createCSVFile(csvRows);

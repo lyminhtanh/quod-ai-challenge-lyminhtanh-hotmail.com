@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class HealthScore {
+public class HealthScore implements Comparable<HealthScore> {
 
   private Long repoId;
 
@@ -65,5 +65,10 @@ public class HealthScore {
         .forEach(metric -> singleMetricScores.put(metric, Constant.DEFAULT_SCORE));
 
     return singleMetricScores;
+  }
+
+  @Override
+  public int compareTo(HealthScore other) {
+    return Double.compare(this.score, other.getScore());
   }
 }

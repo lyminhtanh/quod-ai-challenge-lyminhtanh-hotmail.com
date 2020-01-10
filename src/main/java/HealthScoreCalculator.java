@@ -48,7 +48,7 @@ public class HealthScoreCalculator {
       // FileUtil.deleteJsonFiles();
 
     } catch (Exception ex) {
-      log.error(String.format("Failed to execute Chain.", ex));
+      log.error("Failed to execute Chain.", ex);
     }
     // TODO
     // reuse events from previous chain

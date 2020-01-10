@@ -3,11 +3,11 @@ package metric;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Vector;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
@@ -18,7 +18,6 @@ import model.GitHubEvent;
 import model.HealthScore;
 import model.Payload;
 import model.PullRequest;
-import model.RepoPullRequest;
 
 /**
  * Average time for a pull request to get merged If an issue has not yet merged in the search
@@ -30,56 +29,50 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
     super(Metric.average_pull_request_merge_time, GitHubEventType.PULL_REQUEST_EVENT);
   }
 
-  @Override
-  public List<HealthScore> calculate() throws IOException {
-
-    ConcurrentMap<RepoPullRequest, List<GitHubEvent>> groupedByRepoPullRequest =
-        events.parallelStream()
-            .collect(Collectors.groupingByConcurrent(this::buildRepoPullRequestKey));
-
-    ConcurrentMap<RepoPullRequest, Long> timeGroupedByRepoIssue =
-        groupedByRepoPullRequest.entrySet().parallelStream().collect(
-            Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
-
-    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().parallelStream()
-        .collect(Collectors.groupingByConcurrent(entry -> entry.getKey().getRepoId())).entrySet()
-        .parallelStream()
-        .map(entry -> calculateHealthScore(entry))
-        .collect(Collectors.toCollection(Vector::new));
-
-    return healthScores;
-  }
-
   /**
    * @param entry
    * @return
    */
-  private HealthScore calculateHealthScore(
-      Map.Entry<Long, List<Map.Entry<RepoPullRequest, Long>>> entry) {
+  @Override
+  protected HealthScore calculateHealthScore(Map.Entry<Long, List<GitHubEvent>> entry) {
     double score = calculateHealthScore(entry.getValue());
 
+    if (Constant.SKIP_SCORE == score) {
+      skippedRepoIds.add(entry.getKey()); // or return null? TODO
+    }
     return buildHealthScore(entry.getKey(), score);
   }
 
-  private HealthScore buildHealthScore(Long repoId, double score) {
-    HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
-        .repoId(repoId).score(score).build();
+  /**
+   * calculate health score for one repo
+   * 
+   * @param List<GitHubEvent> odered ascending by issueCreatedAt
+   * @return double
+   */
+  private double calculateHealthScore(List<GitHubEvent> repoEvents) {
 
-    healthScore.getSingleMetricScores().put(this.metric, score);
+    ConcurrentMap<Long, List<GitHubEvent>> groupedByPullRequestId =
 
-    return healthScore;
+        repoEvents.parallelStream().collect(
+            Collectors.groupingByConcurrent(event -> event.getPayload().getPullRequest().getId()));
 
+    ConcurrentMap<Long, Long> timeGroupedByPullRequestId =
+        groupedByPullRequestId.entrySet().parallelStream().collect(
+            Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+
+    return calculateHealthScore(timeGroupedByPullRequestId.values());
   }
+
 
   /**
    * @param entry
    * @return
    */
-  private Long calculateOpenTimeInMinutes(Map.Entry<RepoPullRequest, List<GitHubEvent>> entry) {
+  private Long calculateOpenTimeInMinutes(Map.Entry<Long, List<GitHubEvent>> entry) {
     final LocalDateTime openedAt = Optional.ofNullable(entry.getValue().get(0))
         .map(GitHubEvent::getPayload).map(Payload::getPullRequest).map(PullRequest::getCreatedAt)
         .orElseThrow(() -> new IllegalStateException(String
-            .format("No created_at found for PullRequest: %d", entry.getKey().getPullRequestId())));
+            .format("No created_at found for PullRequest: %d", entry.getKey())));
 
     final LocalDateTime mergedAt = getMergedAt(entry.getValue());
 
@@ -101,22 +94,17 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
 
   }
 
-  private RepoPullRequest buildRepoPullRequestKey(GitHubEvent event) {
-    return new RepoPullRequest(event.getRepo().getId(),
-        event.getPayload().getPullRequest().getId());
-  }
-
   /**
    * calculate health score for each project
    *
    * @return List<HealthScore> odered descending by score
    */
-  private double calculateHealthScore(List<Map.Entry<RepoPullRequest, Long>> entries) {
+  private double calculateHealthScore(Collection<Long> mergedTimes) {
 
-    long sum = entries.parallelStream().map(Map.Entry::getValue).mapToLong(Long::longValue)
+    long sum = mergedTimes.parallelStream().mapToLong(Long::longValue)
         .filter(n -> n >= 0)
         .sum();
-    long count = entries.parallelStream().map(Map.Entry::getValue).filter(n -> n >= 0).count();
+    long count = mergedTimes.parallelStream().filter(n -> n >= 0).count();
 
     if (count == 0) {
       return Constant.SKIP_SCORE;
@@ -125,7 +113,7 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
     Long avgMergedTime =
         sum / count;
     Long minMergedTime =
-        entries.parallelStream().map(Map.Entry::getValue).mapToLong(Long::longValue)
+        mergedTimes.parallelStream().mapToLong(Long::longValue)
             .filter(n -> n >= 0)
             .min().getAsLong();
 

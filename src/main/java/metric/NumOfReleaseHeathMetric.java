@@ -2,9 +2,8 @@ package metric;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Vector;
 import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
@@ -24,17 +23,13 @@ public class NumOfReleaseHeathMetric extends HealthMetric {
     super(Metric.num_of_releases, GitHubEventType.RELEASE_EVENT);
   }
 
+  /**
+   * @param entry
+   * @return
+   */
   @Override
-  public List<HealthScore> calculate() throws IOException {
+  protected HealthScore calculateHealthScore(Map.Entry<Long, List<GitHubEvent>> entry) {
 
-    List<HealthScore> healthScores =
-        events.entrySet().parallelStream().map(this::buildHealthScore)
-            .collect(Collectors.toCollection(Vector::new));
-
-    return healthScores;
-  }
-
-  private HealthScore buildHealthScore(Entry<Long, List<GitHubEvent>> entry) {
     HealthScore healthScore =
         HealthScore.commonBuilder(this.context.getMetricGroup()).repoId(entry.getKey())
         .numOfRelease(countRelease(entry.getValue())).build();
@@ -42,7 +37,6 @@ public class NumOfReleaseHeathMetric extends HealthMetric {
     healthScore.getSingleMetricScores().put(this.metric, (double) healthScore.getNumOfRelease());
 
     return healthScore;
-
   }
 
   private Integer countRelease(List<GitHubEvent> events) {

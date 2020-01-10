@@ -1,8 +1,6 @@
 package model;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -23,10 +21,7 @@ public class HealthScoreContext extends ContextBase {
   private static final long serialVersionUID = 1035495750880405943L;
 
   @Builder.Default
-  private List<HealthScore> healthScores = new Vector<>();
-
-  @Builder.Default
-  private ConcurrentMap<Long, HealthScore> healthScoresMap = new ConcurrentHashMap<>();
+  private ConcurrentMap<Long, HealthScore> healthScores = new ConcurrentHashMap<>();
 
   @Builder.Default
   private ConcurrentMap<Long, String> repoNames = new ConcurrentHashMap<>();

@@ -3,8 +3,6 @@ package metric;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Vector;
-import java.util.stream.Collectors;
 
 import enums.GitHubEventType;
 import enums.Metric;
@@ -23,18 +21,7 @@ public class AverageCommitHeathMetric extends HealthMetric {
   }
 
   @Override
-  public List<HealthScore> calculate() throws IOException {
-    // collect number of commits for each repo
-
-    List<HealthScore> healthScores =
-        events.entrySet().parallelStream()
-            .map(this::buildHealthScore)
-            .collect(Collectors.toCollection(Vector::new));
-
-    return healthScores;
-  }
-
-  private HealthScore buildHealthScore(Entry<Long, List<GitHubEvent>> entry) {
+  protected HealthScore calculateHealthScore(Entry<Long, List<GitHubEvent>> entry) {
     HealthScore healthScore =
         HealthScore.commonBuilder(this.context.getMetricGroup()).repoId(entry.getKey())
         .numOfCommit(entry.getValue().size()).build();

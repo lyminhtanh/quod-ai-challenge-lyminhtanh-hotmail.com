@@ -2,10 +2,13 @@ package metric;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.chain.Command;
 import org.apache.commons.chain.Context;
@@ -17,13 +20,24 @@ import model.GitHubEvent;
 import model.HealthScore;
 import model.HealthScoreContext;
 import model.Repo;
-import util.ChainUtil;
 import util.FileUtil;
 
 @Log4j2
 public abstract class HealthMetric implements Command {
 
-  abstract protected List<HealthScore> calculate() throws IOException;
+  abstract protected HealthScore calculateHealthScore(Map.Entry<Long, List<GitHubEvent>> entry);
+
+  protected ConcurrentMap<Long, HealthScore> calculate() throws IOException {
+    ConcurrentMap<Long, HealthScore> healthScoresMap =
+        events.entrySet().parallelStream().map(this::calculateHealthScore).collect(
+            Collectors.toConcurrentMap(HealthScore::getRepoId, Function.identity(), (r1, r2) -> {
+              log.warn("removed duplicate healthscore repo {}", r1);
+              return r1;
+            }));
+
+    return healthScoresMap;
+  };
+
 
   protected HealthScoreContext context;
 
@@ -48,10 +62,10 @@ public abstract class HealthMetric implements Command {
     this.events = getEvents(eventType);
     this.context = ((HealthScoreContext) context);
 
-    List<HealthScore> currentMetricHealthScores = calculate();
-    List<HealthScore> ctxHealthScores = ((HealthScoreContext) context).getHealthScores();
+    ConcurrentMap<Long, HealthScore> currentMetricHealthScores = calculate();
+    ConcurrentMap<Long, HealthScore> ctxHealthScores = this.context.getHealthScores();
 
-    ChainUtil.mergeHealthScores(ctxHealthScores, currentMetricHealthScores, this.metric);
+    mergeHealthScores(ctxHealthScores, currentMetricHealthScores);
 
     updateRepoNameMap();
     log.info("-- END {}", this.metric.name());
@@ -82,9 +96,38 @@ public abstract class HealthMetric implements Command {
     });
 
     // events.removeIf(event -> !eventType.value().equals(event.getType()));
-    log.info("- Events count {} : {} ", this.eventType, events.size());
+    log.info("- Events count {} : {} ", this.eventType, eventsMap.size());
     return eventsMap;
 
+  }
+
+  protected HealthScore buildHealthScore(Long repoId, double score) {
+    HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
+        .repoId(repoId).score(score).build();
+
+    healthScore.getSingleMetricScores().put(this.metric, score);
+
+    return healthScore;
+
+  }
+
+  public void mergeHealthScores(ConcurrentMap<Long, HealthScore> ctxHealthScores,
+      ConcurrentMap<Long, HealthScore> currentMetricHealthScores) {
+
+    ConcurrentHashMap<Long, HealthScore> mergedHealthScoreMap = Stream
+        .of(ctxHealthScores, currentMetricHealthScores).flatMap(map -> map.entrySet().stream())
+        .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue,
+            this::mergeHealthScore, ConcurrentHashMap::new));
+
+    // update merged result to context
+    context.setHealthScores(mergedHealthScoreMap);
+  }
+
+  private HealthScore mergeHealthScore(HealthScore ctxHealthScore,
+      HealthScore currentMetricHealthScore) {
+    ctxHealthScore.getSingleMetricScores().put(metric,
+        currentMetricHealthScore.getSingleMetricScores().get(metric));
+    return ctxHealthScore;
   }
 
 }

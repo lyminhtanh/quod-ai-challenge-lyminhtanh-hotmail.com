@@ -1,7 +1,6 @@
 package metric;
 
-import java.util.Comparator;
-import java.util.List;
+import java.util.Collection;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.commons.chain.Context;
@@ -19,7 +18,8 @@ public class HealthScoreAggregator implements Filter {
 
   @Override
   public boolean execute(Context context) throws Exception {
-    List<HealthScore> healthScores = ((HealthScoreContext) context).getHealthScores();
+    Collection<HealthScore> healthScores =
+        ((HealthScoreContext) context).getHealthScores().values();
 
     // normalize scores
     NormalizeUtil.normalize(healthScores, ((HealthScoreContext) context).getMetricGroup());
@@ -28,16 +28,14 @@ public class HealthScoreAggregator implements Filter {
     aggregateHealScore(healthScores);
 
     // sort descending by score
-    healthScores.sort(Comparator.comparing(HealthScore::getScore,
-        Comparator.nullsLast(Comparator.reverseOrder())));
+    // healthScores.sort(Comparator.comparing(HealthScore::getScore,
+    // Comparator.nullsLast(Comparator.reverseOrder())));
 
     // update repo names
     ConcurrentMap<Long, String> repoNameMap = ((HealthScoreContext) context).getRepoNames();
     healthScores.parallelStream().forEach(healthScore -> {
       healthScore.setRepoName(repoNameMap.get(healthScore.getRepoId()));
     });
-    // update to context
-    ((HealthScoreContext) context).setHealthScores(healthScores);
 
     return false;
   }
@@ -54,13 +52,16 @@ public class HealthScoreAggregator implements Filter {
    * @param healthScores
    * @return
    */
-  private void aggregateHealScore(List<HealthScore> healthScores) {
+  private void aggregateHealScore(Collection<HealthScore> healthScores) {
     healthScores.forEach(healthScore -> {
       Double aggregateScore = healthScore.getSingleMetricScores().values().stream()
           .mapToDouble(Double::doubleValue).reduce(1.0, (a, b) -> a * b);
 
       healthScore.setScore(aggregateScore);
     });
+
+    // normalize final scores
+    NormalizeUtil.normalize(healthScores);
   }
 
 }
