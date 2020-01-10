@@ -26,12 +26,15 @@ public class HealthScoreContext extends ContextBase {
   private List<HealthScore> healthScores = new Vector<>();
 
   @Builder.Default
+  private ConcurrentMap<Long, HealthScore> healthScoresMap = new ConcurrentHashMap<>();
+
+  @Builder.Default
   private ConcurrentMap<Long, String> repoNames = new ConcurrentHashMap<>();
 
   private LocalDateTime dateTimeStart;
 
   private LocalDateTime dateTimeEnd;
-  
+
   private Strategy metricGroup;
 
 }

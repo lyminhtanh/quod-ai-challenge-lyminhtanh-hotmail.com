@@ -27,8 +27,8 @@ public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
   @Override
   public List<HealthScore> calculate() throws IOException {
     log.debug("--start calculate");
-    List<HealthScore> healthScores = events.parallelStream()
-        .collect(Collectors.groupingByConcurrent(x -> x.getRepo().getId())).entrySet().stream()
+
+    List<HealthScore> healthScores = events.entrySet().parallelStream()
         .map(this::buildHealthScore).collect(Collectors.toCollection(Vector::new));
     log.debug("--end calculate");
     return healthScores;
@@ -44,7 +44,10 @@ public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
     log.debug("--end count");
 
     double metricScore = 0.0;
-    if (healthScore.getNumOfDeveloper() > 0) {
+    if (healthScore.getNumOfDeveloper() == 0) {
+      skippedRepoIds.add(entry.getKey());
+      return healthScore;
+    } else {
       metricScore = (double) healthScore.getNumOfCommit() / healthScore.getNumOfDeveloper();
     }
 
@@ -55,7 +58,7 @@ public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
 
   private int countNumOfDeveloper(List<GitHubEvent> events) {
     return events.parallelStream().map(GitHubEvent::getActor).map(Actor::getId)
-        .collect(Collectors.toCollection(() -> ConcurrentHashMap.newKeySet())).size();
+        .collect(Collectors.toCollection(ConcurrentHashMap::newKeySet)).size();
   }
 
 }

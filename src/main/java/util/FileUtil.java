@@ -9,9 +9,14 @@ import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -26,6 +31,8 @@ import enums.CsvHeader;
 import enums.GitHubEventType;
 import enums.Metric;
 import lombok.extern.log4j.Log4j2;
+import model.GitHubEvent;
+import model.Repo;
 
 @Log4j2
 public class FileUtil {
@@ -61,21 +68,44 @@ public class FileUtil {
    * @return
    * @throws IOException
    */
-  public static List<String> readLinesByEventType(final String filePath,
+  public static ConcurrentMap<Long, List<GitHubEvent>> readLinesByEventType(final String filePath,
       final GitHubEventType eventType) throws IOException {
-    List<String> lines = new ArrayList<>();
+    List<GitHubEvent> events = new Vector<>();
+    ConcurrentMap<Long, List<GitHubEvent>> eventsMap = new ConcurrentHashMap<>();
+    log.info("- reading file {} ...", filePath);
     final String eventTypeStr = String.format("\"type\":\"%s\"", eventType.value());
     try (LineIterator it = FileUtils.lineIterator(new File(filePath), "UTF-8")) {
       while (it.hasNext()) {
         String line = it.nextLine();
         // do something with line
         if (line.contains(eventTypeStr)) {
-          lines.add(line);
+          GitHubEvent event = parseGitHubEvent(line);
+          Optional.ofNullable(event).filter(Objects::nonNull)
+              .filter(evt -> eventType.value().equals(evt.getType())).map(GitHubEvent::getRepo)
+              .map(Repo::getId)
+              .ifPresent(repoId -> {
+                if (eventsMap.get(repoId) == null) {
+                  eventsMap.put(repoId, new Vector<>(Arrays.asList(event)));
+                } else {
+                  eventsMap.get(repoId).add(event);
+                }
+              });
+          if (event != null) {
+            events.add(event);
+          }
         }
       }
     }
 
-    return lines;
+    return eventsMap;
+  }
+
+  private static GitHubEvent parseGitHubEvent(String t) {
+    try {
+      return GitHubEvent.fromJson(t);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**

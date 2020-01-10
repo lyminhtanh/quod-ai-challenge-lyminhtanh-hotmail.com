@@ -1,5 +1,3 @@
-import java.io.IOException;
-import java.net.MalformedURLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,7 +9,6 @@ import lombok.extern.log4j.Log4j2;
 import model.HealthScoreContext;
 import util.ChainUtil;
 import util.DateTimeUtil;
-import util.FileUtil;
 
 @Log4j2
 public class HealthScoreCalculator {
@@ -35,15 +32,15 @@ public class HealthScoreCalculator {
               context.getDateTimeEnd());
 
       // download data parallely
-      urls.parallelStream().forEach(t -> {
-        try {
-          FileUtil.downloadAsJsonFile(t);
-        } catch (MalformedURLException ex) {
-          throw new RuntimeException(ex);
-        } catch (IOException ex) {
-          throw new RuntimeException(ex);
-        }
-      });
+      // urls.parallelStream().forEach(t -> {
+      // try {
+      // FileUtil.downloadAsJsonFile(t);
+      // } catch (MalformedURLException ex) {
+      // throw new RuntimeException(ex);
+      // } catch (IOException ex) {
+      // throw new RuntimeException(ex);
+      // }
+      // });
 
       ChainUtil.executeChain(context);
 
@@ -53,8 +50,9 @@ public class HealthScoreCalculator {
     } catch (Exception ex) {
       log.error(String.format("Failed to execute Chain.", ex));
     }
-
-
+    // TODO
+    // reuse events from previous chain
+    // handle -1
   }
 
   private static HealthScoreContext buildContext(String[] args) {

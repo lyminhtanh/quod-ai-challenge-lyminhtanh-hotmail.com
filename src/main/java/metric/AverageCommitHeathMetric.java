@@ -27,8 +27,7 @@ public class AverageCommitHeathMetric extends HealthMetric {
     // collect number of commits for each repo
 
     List<HealthScore> healthScores =
-        events.parallelStream().collect(Collectors.groupingByConcurrent(x -> x.getRepo().getId()))
-            .entrySet().stream()
+        events.entrySet().parallelStream()
             .map(this::buildHealthScore)
             .collect(Collectors.toCollection(Vector::new));
 

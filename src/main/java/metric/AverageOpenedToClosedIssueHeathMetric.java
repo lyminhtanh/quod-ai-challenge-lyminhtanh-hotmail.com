@@ -7,6 +7,7 @@ import java.util.Vector;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
+import constant.Constant;
 import enums.GitHubEventType;
 import enums.IssueState;
 import enums.Metric;
@@ -96,7 +97,7 @@ public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
         entries.parallelStream().map(Map.Entry::getValue).filter(IssueState.CLOSED::equals).count();
 
     if (numOfClosedIssue == 0) {
-      return Double.MAX_VALUE;
+      return Constant.SKIP_SCORE;
     }
 
     return (double)(entries.size() - numOfClosedIssue)/numOfClosedIssue;

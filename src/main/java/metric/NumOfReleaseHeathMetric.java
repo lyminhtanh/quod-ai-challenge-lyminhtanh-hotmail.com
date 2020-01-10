@@ -28,8 +28,7 @@ public class NumOfReleaseHeathMetric extends HealthMetric {
   public List<HealthScore> calculate() throws IOException {
 
     List<HealthScore> healthScores =
-        events.parallelStream().collect(Collectors.groupingByConcurrent(x -> x.getRepo().getId()))
-            .entrySet().parallelStream().map(this::buildHealthScore)
+        events.entrySet().parallelStream().map(this::buildHealthScore)
             .collect(Collectors.toCollection(Vector::new));
 
     return healthScores;

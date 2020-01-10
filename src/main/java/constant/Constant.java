@@ -9,4 +9,5 @@ public class Constant {
     public static final String ZONE_UTC = "UTC";
     public static final String EMPTY_STRING = "";
     public static final Double DEFAULT_SCORE = 0.0;
+  public static final Double SKIP_SCORE = -1.0;
 }

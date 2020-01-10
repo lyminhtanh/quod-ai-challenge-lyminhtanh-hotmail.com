@@ -21,9 +21,9 @@ public class AllMetricsChain extends ChainBase {
   public AllMetricsChain() throws IOException {
     super();
     log.info("--- Start chain with the strategy {}", Strategy.ALL_METRIC);
+    addCommand(new AveragePullRequestMergedTimeHeathMetric());
     addCommand(new AverageCommitHeathMetric());
     addCommand(new AverageIssueOpenedTimeHeathMetric());
-    addCommand(new AveragePullRequestMergedTimeHeathMetric());
     addCommand(new AverageCommitPerDeveloperRatioHeathMetric());
     addCommand(new AverageOpenedToClosedIssueHeathMetric());
     addCommand(new NumOfReleaseHeathMetric());

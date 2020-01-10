@@ -7,13 +7,15 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Vector;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import constant.Constant;
 import enums.Action;
 import enums.GitHubEventType;
 import enums.Metric;
+import lombok.extern.log4j.Log4j2;
 import model.GitHubEvent;
 import model.HealthScore;
 import model.Issue;
@@ -24,6 +26,7 @@ import model.RepoIssue;
  * Average time that an issue remains opened healthRatio = total(PushEvent of
  * project A)/total(PushEvent)
  */
+@Log4j2
 public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
 
   public AverageIssueOpenedTimeHeathMetric() throws IOException {
@@ -32,30 +35,36 @@ public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
 
   @Override
   public List<HealthScore> calculate() throws IOException {
+    ConcurrentMap<Long, HealthScore> healthScoresMap = events.entrySet().parallelStream()
+        .map(this::calculateHealthScore)
+        .collect(
+            Collectors.toConcurrentMap(HealthScore::getRepoId, Function.identity(), (r1, r2) -> {
+              log.warn("removed duplicate healthscore repo {}", r1);
+              return r1;
+            }));
+//    ConcurrentMap<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
+//        events.parallelStream().collect(Collectors.groupingByConcurrent(this::buildRepoIssueKey));
+//
+//    groupedByRepoIssue.values().parallelStream().filter(event -> event.size() > 1).forEach(event -> events
+//        .sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
+//
+//    ConcurrentMap<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().parallelStream()
+//        .collect(Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+//
+//    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().parallelStream()
+//        .collect(Collectors.groupingByConcurrent(entry -> entry.getKey().getRepoId())).entrySet().parallelStream()
+//        .map(entry -> calculateHealthScore(entry))
+//        .collect(Collectors.toCollection(Vector::new));
 
-    ConcurrentMap<RepoIssue, List<GitHubEvent>> groupedByRepoIssue =
-        events.parallelStream().collect(Collectors.groupingByConcurrent(this::buildRepoIssueKey));
-
-    groupedByRepoIssue.values().parallelStream().filter(event -> event.size() > 1).forEach(event -> events
-        .sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
-
-    ConcurrentMap<RepoIssue, Long> timeGroupedByRepoIssue = groupedByRepoIssue.entrySet().parallelStream()
-        .collect(Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
-
-    List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().parallelStream()
-        .collect(Collectors.groupingByConcurrent(entry -> entry.getKey().getRepoId())).entrySet().parallelStream()
-        .map(entry -> calculateHealthScore(entry))
-        .collect(Collectors.toCollection(Vector::new));
-
-    return healthScores;
+    return null; // healthScoresMap;//healthScores;
   }
-
   /**
    * @param entry
    * @return
    */
+
   private HealthScore calculateHealthScore(
-      Map.Entry<Long, List<Map.Entry<RepoIssue, Long>>> entry) {
+      Map.Entry<Long, List<GitHubEvent>> entry) {
     double score = calculateHealthScore(entry.getValue());
 
     return buildHealthScore(entry.getKey(), score);
@@ -75,13 +84,13 @@ public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
    * @param entry
    * @return
    */
-  private Long calculateOpenTimeInMinutes(Map.Entry<RepoIssue, List<GitHubEvent>> entry) {
+  private Long calculateOpenTimeInMinutes(Map.Entry<Long, List<GitHubEvent>> entry) {
     final LocalDateTime openedAt = Optional.ofNullable(entry.getValue().get(0))
         .map(GitHubEvent::getPayload).map(Payload::getIssue).map(Issue::getCreatedAt)
         .orElseThrow(() -> new IllegalStateException(
-            String.format("No created_at found for Issue: %d", entry.getKey().getIssueId())));
+            String.format("No created_at found for Issue", repoEvents.get(0))));
 
-    final LocalDateTime nonOpenedAt = getNonOpenActionCreatedAt(entry.getValue());
+    final LocalDateTime nonOpenedAt = getNonOpenActionCreatedAt(repoEvents);
     Duration duration = Duration.between(openedAt, nonOpenedAt);
 
     return duration.toMinutes();
@@ -117,7 +126,35 @@ public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
    *
    * @return List<HealthScore> odered descending by score
    */
-  private double calculateHealthScore(List<Map.Entry<RepoIssue, Long>> entries) {
+  private double calculateHealthScore(List<GitHubEvent> repoEvents) {
+
+    ConcurrentMap<Long, List<GitHubEvent>> groupedByIssueId =
+
+        repoEvents.parallelStream().collect(
+            Collectors.groupingByConcurrent(event -> event.getPayload().getIssue().getId()));
+    //
+    groupedByIssueId.values().parallelStream().filter(event -> event.size() > 1)
+        .forEach(event -> event
+            .sort(Comparator.comparing(GitHubEvent::getCreatedAt, Comparator.naturalOrder())));
+    //
+    ConcurrentMap<Long, Long> timeGroupedByIssueId =
+        groupedByIssueId.entrySet().parallelStream().collect(
+            Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+    //
+    // List<HealthScore> healthScores = timeGroupedByRepoIssue.entrySet().parallelStream()
+    // .collect(Collectors.groupingByConcurrent(entry ->
+    // entry.getKey().getRepoId())).entrySet().parallelStream()
+    // .map(entry -> calculateHealthScore(entry))
+    // .collect(Collectors.toCollection(Vector::new));
+
+
+
+    // Long openTime = calculateOpenTimeInMinutes(repoEvents);
+    return 0;
+
+  }
+
+  private double calculateHealthScore1(List<Map.Entry<RepoIssue, Long>> entries) {
     if (entries.size() == 0) {
       return 0;
     }
@@ -126,7 +163,7 @@ public class AverageIssueOpenedTimeHeathMetric extends HealthMetric {
     Long minOpenTime =
         entries.stream().map(Map.Entry::getValue).mapToLong(Long::longValue).min().getAsLong();
     if (minOpenTime == 0) {
-      return Double.MAX_VALUE;
+      return Constant.SKIP_SCORE;
     }
     return (double) avgOpenTime / minOpenTime;
   }

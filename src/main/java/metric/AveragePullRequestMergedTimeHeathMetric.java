@@ -11,6 +11,7 @@ import java.util.Vector;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
+import constant.Constant;
 import enums.GitHubEventType;
 import enums.Metric;
 import model.GitHubEvent;
@@ -118,7 +119,7 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
     long count = entries.parallelStream().map(Map.Entry::getValue).filter(n -> n >= 0).count();
 
     if (count == 0) {
-      return 0.0;
+      return Constant.SKIP_SCORE;
     }
 
     Long avgMergedTime =
@@ -129,7 +130,7 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
             .min().getAsLong();
 
     if (minMergedTime == 0) {
-      return Double.MAX_VALUE;
+      return Constant.SKIP_SCORE;
     }
     return (double) avgMergedTime / minMergedTime;
   }
