@@ -16,14 +16,13 @@ import model.Issue;
 import model.Payload;
 
 /**
- * Average time that an issue remains opened healthRatio = total(PushEvent of
- * project A)/total(PushEvent)
+ * Ratio of closed to open issues
  */
 
-public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
+public class AverageClosedToOpeningIssueHeathMetric extends HealthMetric {
 
-  public AverageOpenedToClosedIssueHeathMetric() throws IOException {
-    super(Metric.AVERAGE_OPENING_TO_CLOSED_ISSUE_RATIO);
+  public AverageClosedToOpeningIssueHeathMetric() throws IOException {
+    super(Metric.AVERAGE_CLOSED_TO_OPENING_ISSUE_RATIO);
   }
 
   /**
@@ -75,17 +74,18 @@ public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
     long numOfClosedIssue =
         issueStates.parallelStream().filter(IssueState.CLOSED::equals).count();
 
-    if (numOfClosedIssue == 0) {
+    long numOfOpeningIssue = issueStates.size() - numOfClosedIssue;
+
+    if (numOfOpeningIssue == 0) {
       return Constant.SKIP_SCORE;
     }
 
-    long numOfOpeningIssue = issueStates.size() - numOfClosedIssue;
 
     // update statistic data
     getRepoStatistics(repoId).put(StatisticData.NUM_OF_OPENING_ISSUES, numOfOpeningIssue);
     getRepoStatistics(repoId).put(StatisticData.NUM_OF_CLOSED_ISSUES, numOfClosedIssue);
 
-    return (double) numOfOpeningIssue / numOfClosedIssue;
+    return (double) numOfClosedIssue / numOfOpeningIssue;
   }
 
 }
