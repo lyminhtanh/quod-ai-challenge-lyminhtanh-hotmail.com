@@ -99,6 +99,12 @@ public class HealthScoreCalculator {
           "Please input valid arguments. E.g: 2019-08-01T00:00:00Z 2019-08-01T01:00:00Z. Pass at least 2 arguments dateTimeStart and dateTimeEnd.");
     }
 
+    if (dateTimeStart.isAfter(dateTimeEnd)) {
+      throw new IllegalStateException(
+          "Please input valid arguments: dateTimeStart should be before dateTimeEnd.");
+
+    }
+
     return HealthScoreContext.builder().strategy(strategy).dateTimeStart(dateTimeStart)
         .dateTimeEnd(dateTimeEnd).build();
   }
