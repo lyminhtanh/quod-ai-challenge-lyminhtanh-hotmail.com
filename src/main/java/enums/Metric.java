@@ -8,7 +8,7 @@ import lombok.Getter;
 import metric.AverageCommitHeathMetric;
 import metric.AverageCommitPerDeveloperRatioHeathMetric;
 import metric.AverageIssueOpenedTimeHeathMetric;
-import metric.AverageOpenedToClosedIssueHeathMetric;
+import metric.AverageClosedToOpeningIssueHeathMetric;
 import metric.AveragePullRequestMergedTimeHeathMetric;
 import metric.HealthMetric;
 import metric.NumOfReleaseHeathMetric;
@@ -29,9 +29,9 @@ public enum Metric {
                   GitHubEventType.PUSH_EVENT,
                   AverageCommitPerDeveloperRatioHeathMetric.class, new HashSet<>(Arrays.asList(StatisticData.NUM_OF_COMMITS, StatisticData.NUM_OF_DEVELOPERS))),
   
-  AVERAGE_OPENING_TO_CLOSED_ISSUE_RATIO(
+  AVERAGE_CLOSED_TO_OPENING_ISSUE_RATIO(
                       GitHubEventType.ISSUE_EVENT,
-                      AverageOpenedToClosedIssueHeathMetric.class, new HashSet<>(Arrays.asList(StatisticData.NUM_OF_OPENING_ISSUES, StatisticData.NUM_OF_CLOSED_ISSUES))),
+                      AverageClosedToOpeningIssueHeathMetric.class, new HashSet<>(Arrays.asList(StatisticData.NUM_OF_OPENING_ISSUES, StatisticData.NUM_OF_CLOSED_ISSUES))),
   
   NUMBER_OF_RELEASES(GitHubEventType.RELEASE_EVENT, NumOfReleaseHeathMetric.class, new HashSet<>(Arrays.asList(StatisticData.NUM_OF_RELEASES)));
 
