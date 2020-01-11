@@ -62,6 +62,7 @@ Each node in the chain will be process separately but the data go as a pineline 
 => Solution: apply other technique to manage threads more effectively like threadpool
 - Some metrics uses same Github Event Type to calculate score, they can reuse without repeatting IO operation and JSON parsing
 - Implement other metrics
+- Unit tests
 
 
 
