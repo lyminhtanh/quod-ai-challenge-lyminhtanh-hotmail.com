@@ -42,7 +42,7 @@ Each node in the chain will be process separately but the data go as a pineline 
 + AVERAGE_COMMIT : Average number of commits (push) per day (to any branch)
 + AVERAGE_PULL_REQUEST_MERGE_TIME: Average time for a pull request to get merged
 + AVERAGE_COMMITS_PER_DEVELOPERS_RATIO: Ratio of commit per developers
-+ AVERAGE_OPENING_TO_CLOSED_ISSUE_RATIO: Ratio of closed to open issues
++ AVERAGE_CLOSED_TO_OPENING_ISSUE_RATIO: Ratio of closed to open issues
 + NUMBER_OF_RELEASES : Number of releases
 
 * If startDate is not passed, ALL_METRIC strategy will be applied
