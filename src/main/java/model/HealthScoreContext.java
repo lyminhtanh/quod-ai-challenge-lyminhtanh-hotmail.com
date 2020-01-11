@@ -30,6 +30,6 @@ public class HealthScoreContext extends ContextBase {
 
   private LocalDateTime dateTimeEnd;
 
-  private Strategy metricGroup;
+  private Strategy strategy;
 
 }

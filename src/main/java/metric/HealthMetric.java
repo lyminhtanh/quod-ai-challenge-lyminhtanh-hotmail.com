@@ -3,6 +3,7 @@ package metric;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -13,8 +14,10 @@ import java.util.stream.Stream;
 import org.apache.commons.chain.Command;
 import org.apache.commons.chain.Context;
 
+import constant.Constant;
 import enums.GitHubEventType;
 import enums.Metric;
+import enums.StatisticData;
 import lombok.extern.log4j.Log4j2;
 import model.GitHubEvent;
 import model.HealthScore;
@@ -25,41 +28,35 @@ import util.FileUtil;
 @Log4j2
 public abstract class HealthMetric implements Command {
 
-  abstract protected HealthScore calculateHealthScore(Map.Entry<Long, List<GitHubEvent>> entry);
-
-  protected ConcurrentMap<Long, HealthScore> calculate() throws IOException {
-    ConcurrentMap<Long, HealthScore> healthScoresMap =
-        events.entrySet().parallelStream().map(this::calculateHealthScore).collect(
-            Collectors.toConcurrentMap(HealthScore::getRepoId, Function.identity(), (r1, r2) -> {
-              log.warn("removed duplicate healthscore repo {}", r1);
-              return r1;
-            }));
-
-    return healthScoresMap;
-  };
-
+  /**
+   * calculate health score for one repo
+   * 
+   * @param List<GitHubEvent>
+   * @return double
+   */
+  abstract protected double calculateHealthScore(List<GitHubEvent> repoEvents);
 
   protected HealthScoreContext context;
 
   protected Metric metric;
 
-  protected ConcurrentMap<Long, List<GitHubEvent>> events;
+  protected ConcurrentMap<Long, List<GitHubEvent>> eventsByRepoId;
+
+  protected ConcurrentMap<Long, ConcurrentMap<StatisticData, Number>> statisticDatas =
+      new ConcurrentHashMap<>();
 
   protected List<Long> skippedRepoIds;
 
-  private GitHubEventType eventType;
-
-  public HealthMetric(Metric metric, GitHubEventType eventType) throws IOException {
+  public HealthMetric(Metric metric) throws IOException {
     this.metric = metric;
-    this.eventType = eventType;
   }
 
   @Override
   public boolean execute(Context context) throws Exception {
-    log.info("-- START {}", this.metric.name());
+    log.info("=====================START {} =========================", this.metric.name());
     skippedRepoIds = new Vector<>();
 
-    this.events = getEvents(eventType);
+    this.eventsByRepoId = getEvents(this.metric.getType());
     this.context = ((HealthScoreContext) context);
 
     ConcurrentMap<Long, HealthScore> currentMetricHealthScores = calculate();
@@ -68,20 +65,85 @@ public abstract class HealthMetric implements Command {
     mergeHealthScores(ctxHealthScores, currentMetricHealthScores);
 
     updateRepoNameMap();
-    log.info("-- END {}", this.metric.name());
+    log.info("===================== END {} =========================", this.metric.name());
     return false;
   }
 
-  private void updateRepoNameMap() {
-    ConcurrentMap<Long, String> repoNames =
-        events.values().parallelStream().flatMap(List::stream).map(GitHubEvent::getRepo)
-            .collect(Collectors.toConcurrentMap(Repo::getId, Repo::getName, (r1, r2) -> r1));
+  /**
+   * @param entry
+   * @return
+   */
+  protected HealthScore calculateHealthScore(Map.Entry<Long, List<GitHubEvent>> entry) {
+    double score = calculateHealthScore(entry.getValue());
 
-    context.getRepoNames().putAll(repoNames);
+    if (Constant.SKIP_SCORE == score) {
+      return null;
+    }
+    return buildHealthScore(entry.getKey(), score);
   }
 
+  /**
+   * build HealthScore object
+   * 
+   * @param repoId
+   * @param score
+   * @return
+   */
+  protected HealthScore buildHealthScore(Long repoId, double score) {
+    HealthScore healthScore =
+        HealthScore.commonBuilder(this.context.getStrategy())
+        .repoId(repoId).score(score).build();
 
-  protected ConcurrentMap<Long, List<GitHubEvent>> getEvents(GitHubEventType eventType)
+    // set statistic if any
+    if (getRepoStatistics(repoId) != null) {
+      healthScore.setStatisticData(getRepoStatistics(repoId));
+    }
+    healthScore.getSingleMetricScores().put(this.metric, score);
+
+    return healthScore;
+
+  }
+
+  /**
+   * 
+   * @param repoEvents
+   * @return
+   */
+  protected long getRepoId(List<GitHubEvent> repoEvents) {
+    return repoEvents.get(0).getRepo().getId();
+  }
+
+  /**
+   * get map of statistic data by repo
+   * 
+   * @param repoId
+   * @return
+   */
+  protected ConcurrentMap<StatisticData, Number> getRepoStatistics(Long repoId) {
+    if (this.statisticDatas.get(repoId) == null) {
+      this.statisticDatas.put(repoId, new ConcurrentHashMap<>());
+    }
+    return statisticDatas.get(repoId);
+  }
+
+  /**
+   * calculate and collect only non-null HeathScores
+   * 
+   * @return
+   * @throws IOException
+   */
+  private ConcurrentMap<Long, HealthScore> calculate() throws IOException {
+    ConcurrentMap<Long, HealthScore> healthScoresMap = eventsByRepoId.entrySet().parallelStream()
+        .map(this::calculateHealthScore).filter(Objects::nonNull).collect(
+            Collectors.toConcurrentMap(HealthScore::getRepoId, Function.identity(), (r1, r2) -> {
+              log.warn("removed duplicate healthscore repo {}", r1);
+              return r1;
+            }));
+
+    return healthScoresMap;
+  };
+
+  private ConcurrentMap<Long, List<GitHubEvent>> getEvents(GitHubEventType eventType)
       throws Exception {
     ConcurrentMap<Long, List<GitHubEvent>> eventsMap = new ConcurrentHashMap<>();
 
@@ -96,22 +158,20 @@ public abstract class HealthMetric implements Command {
     });
 
     // events.removeIf(event -> !eventType.value().equals(event.getType()));
-    log.info("- Events count {} : {} ", this.eventType, eventsMap.size());
+    log.info("- Events count {} : {} ", this.metric.getType(), eventsMap.size());
     return eventsMap;
 
   }
 
-  protected HealthScore buildHealthScore(Long repoId, double score) {
-    HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
-        .repoId(repoId).score(score).build();
+  private void updateRepoNameMap() {
+    ConcurrentMap<Long, String> repoNames =
+        eventsByRepoId.values().parallelStream().flatMap(List::stream).map(GitHubEvent::getRepo)
+            .collect(Collectors.toConcurrentMap(Repo::getId, Repo::getName, (r1, r2) -> r1));
 
-    healthScore.getSingleMetricScores().put(this.metric, score);
-
-    return healthScore;
-
+    context.getRepoNames().putAll(repoNames);
   }
 
-  public void mergeHealthScores(ConcurrentMap<Long, HealthScore> ctxHealthScores,
+  private void mergeHealthScores(ConcurrentMap<Long, HealthScore> ctxHealthScores,
       ConcurrentMap<Long, HealthScore> currentMetricHealthScores) {
 
     ConcurrentHashMap<Long, HealthScore> mergedHealthScoreMap = Stream
@@ -125,9 +185,20 @@ public abstract class HealthMetric implements Command {
 
   private HealthScore mergeHealthScore(HealthScore ctxHealthScore,
       HealthScore currentMetricHealthScore) {
+    // update score for current metric
     ctxHealthScore.getSingleMetricScores().put(metric,
         currentMetricHealthScore.getSingleMetricScores().get(metric));
+
+    // update statData coresponding to current metric
+
+    currentMetricHealthScore.getStatisticData()
+    .keySet()
+    .stream()
+    .filter(this.metric.getStatDatas()::contains)
+    .forEach(key -> 
+      ctxHealthScore.getStatisticData().put(key, currentMetricHealthScore.getStatisticData().get(key))
+    );
+    
     return ctxHealthScore;
   }
-
 }

@@ -56,4 +56,14 @@ public class DateTimeUtil {
     return dateTimeStrings;
   }
 
+  /**
+   * check if time period is valid
+   * 
+   * @param time
+   * @return
+   */
+  public static boolean isValidTime(Long time) {
+    return time != null && time >= 0;
+  }
+
 }

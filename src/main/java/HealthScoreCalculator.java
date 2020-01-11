@@ -1,60 +1,80 @@
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Scanner;
 
+import constant.Constant;
 import enums.Strategy;
 import lombok.extern.log4j.Log4j2;
 import model.HealthScoreContext;
 import util.ChainUtil;
 import util.DateTimeUtil;
+import util.FileUtil;
 
 @Log4j2
 public class HealthScoreCalculator {
+
   public static void main(String[] args) {
 
-    // TODO benchmark
-    // Options opt =
-    // new OptionsBuilder().include(HealthScoreCalculator.class.getSimpleName()).forks(1).build();
-    //
-    // new Runner(opt).run();
-
-
-    // process data
-    try {
+    try (Scanner input = new Scanner(System.in)) {
       HealthScoreContext context = buildContext(args);
 
-      //
-      // // build list of dateTime string for valid urls
-      final List<String> urls =
-          DateTimeUtil.buildDateTimeStringsFromInterval(context.getDateTimeStart(),
-              context.getDateTimeEnd());
+      // prompt for download files
+      showPromptForDownload(input, context);
 
-      // download data parallely
-      // urls.parallelStream().forEach(t -> {
-      // try {
-      // FileUtil.downloadAsJsonFile(t);
-      // } catch (MalformedURLException ex) {
-      // throw new RuntimeException(ex);
-      // } catch (IOException ex) {
-      // throw new RuntimeException(ex);
-      // }
-      // });
-
+      // Start calculating
       ChainUtil.executeChain(context);
 
-      // delete files
-      // FileUtil.deleteJsonFiles();
-
+      // prompt for delete files
+      showPromptForDeleteFiles(input);
     } catch (Exception ex) {
-      log.error("Failed to execute Chain.", ex);
+      log.error("Failed to continue calculating.", ex);
     }
-    // TODO
-    // reuse events from previous chain
-    // handle -1
   }
 
+  private static void showPromptForDeleteFiles(Scanner input) throws IOException {
+    System.out.println(">>>> Do you want to delete all downloaded data? Input Y/N");
+
+    if (Constant.ANSWER_YES.equalsIgnoreCase(input.next())) {
+      FileUtil.deleteJsonFiles();
+
+      log.info("Deleted all json files successfully");
+    } else {
+      log.info("All json files was kept. End calculating ...");
+    }
+  }
+
+  private static void showPromptForDownload(Scanner input, HealthScoreContext context)
+      throws IOException {
+    System.out
+        .println(">>>> Do you want to delete all downloaded data and download new one? Input Y/N");
+
+    if (Constant.ANSWER_YES.equalsIgnoreCase(input.next())) {
+      FileUtil.deleteJsonFiles();
+
+      log.info("Deleted all json files successfully. Start downloading ...");
+
+      // build list of dateTime string for valid urls
+      final List<String> urls = DateTimeUtil
+          .buildDateTimeStringsFromInterval(context.getDateTimeStart(), context.getDateTimeEnd());
+
+      // download data parallely
+      FileUtil.downloadAsJsonFile(urls);
+
+    } else {
+      log.info("All json files was kept. Start calculating ...");
+    }
+  }
+
+  /**
+   * build chain context by varargs
+   * 
+   * @param args
+   * @return
+   */
   private static HealthScoreContext buildContext(String[] args) {
     List<String> argList = new ArrayList<>(Arrays.asList(args));
 
@@ -70,7 +90,7 @@ public class HealthScoreCalculator {
     // parse input
     final LocalDateTime dateTimeStart = DateTimeUtil.parseDateTime(argList.get(0));
     final LocalDateTime dateTimeEnd = DateTimeUtil.parseDateTime(argList.get(1));
-    final Strategy metricGroup =
+    final Strategy strategy =
         Optional.ofNullable(Strategy.valueOf(argList.get(2))).orElse(Strategy.ALL_METRIC);
 
     // validate input
@@ -79,7 +99,7 @@ public class HealthScoreCalculator {
           "Please input valid arguments. E.g: 2019-08-01T00:00:00Z 2019-08-01T01:00:00Z. Pass at least 2 arguments dateTimeStart and dateTimeEnd.");
     }
 
-    return HealthScoreContext.builder().metricGroup(metricGroup).dateTimeStart(dateTimeStart)
+    return HealthScoreContext.builder().strategy(strategy).dateTimeStart(dateTimeStart)
         .dateTimeEnd(dateTimeEnd).build();
   }
 

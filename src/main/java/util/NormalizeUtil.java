@@ -31,6 +31,10 @@ public class NormalizeUtil {
    */
   public static void normalize(Collection<HealthScore> healthScores) {
 
+    if (CollectionUtils.isEmpty(healthScores)) {
+      return;
+    }
+
     // process normalization for single metric
     final double dataHigh = healthScores.stream().map(HealthScore::getScore)
         .mapToDouble(Double::doubleValue).max().getAsDouble();

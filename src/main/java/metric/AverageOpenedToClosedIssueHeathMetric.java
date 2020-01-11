@@ -8,11 +8,10 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import constant.Constant;
-import enums.GitHubEventType;
 import enums.IssueState;
 import enums.Metric;
+import enums.StatisticData;
 import model.GitHubEvent;
-import model.HealthScore;
 import model.Issue;
 import model.Payload;
 
@@ -24,19 +23,7 @@ import model.Payload;
 public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
 
   public AverageOpenedToClosedIssueHeathMetric() throws IOException {
-    super(Metric.average_opened_to_closed_issue_ratio, GitHubEventType.ISSUE_EVENT);
-  }
-
-  /**
-   * @param entry
-   * @return
-   */
-  @Override
-  protected HealthScore calculateHealthScore(
-      Map.Entry<Long, List<GitHubEvent>> entry) {
-    double score = calculateHealthScore(entry.getValue());
-
-    return buildHealthScore(entry.getKey(), score);
+    super(Metric.AVERAGE_OPENING_TO_CLOSED_ISSUE_RATIO);
   }
 
   /**
@@ -45,21 +32,23 @@ public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
    * @param List<GitHubEvent> odered ascending by issueCreatedAt
    * @return double
    */
-  private double calculateHealthScore(List<GitHubEvent> repoEvents) {
+  @Override
+  protected double calculateHealthScore(List<GitHubEvent> repoEvents) {
 
     ConcurrentMap<Long, List<GitHubEvent>> groupedByIssueId =
-
         repoEvents.parallelStream().collect(
             Collectors.groupingByConcurrent(event -> event.getPayload().getIssue().getId()));
 
-    ConcurrentMap<Long, IssueState> timeGroupedByIssueId =
+    ConcurrentMap<Long, IssueState> stateGroupedByIssueId =
         groupedByIssueId.entrySet().parallelStream()
             .collect(Collectors.toConcurrentMap(entry -> entry.getKey(), this::getIssueState));
 
-    return calculateHealthScore(timeGroupedByIssueId.values());
+    return calculateHealthScore(stateGroupedByIssueId.values(), getRepoId(repoEvents));
   }
 
   /**
+   * check Issue State closed or not
+   * 
    * @param entry
    * @return
    */
@@ -68,26 +57,35 @@ public class AverageOpenedToClosedIssueHeathMetric extends HealthMetric {
         entry.getValue().parallelStream().map(GitHubEvent::getPayload).map(Payload::getIssue)
         .map(Issue::getState).anyMatch(IssueState.CLOSED.name()::equalsIgnoreCase);
 
-    return isClosed ? IssueState.CLOSED : IssueState.OPENED;
+    return isClosed ? IssueState.CLOSED : IssueState.OPENING;
   }
 
   /**
-   * calculate health score for each project
+   * calculate score = numOfOpeningIssue / numOfClosedIssue
+   * 
+   * @param repoId
    *
    * @return List<HealthScore> odered descending by score
    */
-  private double calculateHealthScore(Collection<IssueState> entries) {
-    if (entries.size() == 0) {
-      return 0;
+  private double calculateHealthScore(Collection<IssueState> issueStates, long repoId) {
+    if (issueStates.size() == 0) {
+      return Constant.SKIP_SCORE;
     }
+
     long numOfClosedIssue =
-        entries.parallelStream().filter(IssueState.CLOSED::equals).count();
+        issueStates.parallelStream().filter(IssueState.CLOSED::equals).count();
 
     if (numOfClosedIssue == 0) {
       return Constant.SKIP_SCORE;
     }
 
-    return (double)(entries.size() - numOfClosedIssue)/numOfClosedIssue;
+    long numOfOpeningIssue = issueStates.size() - numOfClosedIssue;
+
+    // update statistic data
+    getRepoStatistics(repoId).put(StatisticData.NUM_OF_OPENING_ISSUES, numOfOpeningIssue);
+    getRepoStatistics(repoId).put(StatisticData.NUM_OF_CLOSED_ISSUES, numOfClosedIssue);
+
+    return (double) numOfOpeningIssue / numOfClosedIssue;
   }
 
 }

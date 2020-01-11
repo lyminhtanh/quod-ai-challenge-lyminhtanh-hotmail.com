@@ -9,6 +9,7 @@ import java.util.stream.Stream;
 
 import constant.Constant;
 import enums.Metric;
+import enums.StatisticData;
 import enums.Strategy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,14 +26,11 @@ public class HealthScore implements Comparable<HealthScore> {
 
   private String repoName;
 
-  private Integer numOfCommit;
-
-  private Integer numOfDeveloper;
-
-  private Integer numOfRelease;
-
   @Builder.Default
   private ConcurrentMap<Metric, Double> singleMetricScores = new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private ConcurrentMap<StatisticData, Number> statisticData = new ConcurrentHashMap<>();
 
   private Double score;
 
@@ -40,15 +38,22 @@ public class HealthScore implements Comparable<HealthScore> {
     List<String> singleMetricScoresStr = Stream.of(Metric.values()).map(singleMetricScores::get)
         .map(String::valueOf).collect(Collectors.toList());
 
+    List<String> statisticDataStr = Stream.of(StatisticData.values()).map(statisticData::get)
+        .map(String::valueOf).collect(Collectors.toList());
+    
     List<String> row = new ArrayList<>();
 
     row.add(String.valueOf(repoId));
     row.add(repoName);
     row.add(String.valueOf(score));
-    row.add(String.valueOf(numOfCommit));
-    row.add(String.valueOf(numOfDeveloper));
-    row.add(String.valueOf(numOfRelease));
+    
+   
+    // add single scores
     row.addAll(singleMetricScoresStr);
+    
+    // add statistic data
+    row.addAll(statisticDataStr);
+    
     return row.toArray(new String[0]);
   };
 

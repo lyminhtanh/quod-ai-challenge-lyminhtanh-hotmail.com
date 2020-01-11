@@ -30,6 +30,7 @@ import constant.Constant;
 import enums.CsvHeader;
 import enums.GitHubEventType;
 import enums.Metric;
+import enums.StatisticData;
 import lombok.extern.log4j.Log4j2;
 import model.GitHubEvent;
 import model.Repo;
@@ -40,10 +41,23 @@ public class FileUtil {
    * download File
    *
    * @param dateTimeString
+   * @param urls
    * @throws IOException
    * @throws MalformedURLException
    */
-  public static void downloadAsJsonFile(final String dateTimeString)
+  public static void downloadAsJsonFile(List<String> urls) throws RuntimeException {
+    urls.parallelStream().forEach(t -> {
+      try {
+        FileUtil.downloadAsJsonFile(t);
+      } catch (MalformedURLException ex) {
+        throw new RuntimeException(ex);
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      }
+    });
+  }
+
+  private static void downloadAsJsonFile(final String dateTimeString)
       throws MalformedURLException, IOException {
     log.info(String.format("--Downloading: %s", String.format(Constant.BASE_URL, dateTimeString)));
 
@@ -82,8 +96,7 @@ public class FileUtil {
           GitHubEvent event = parseGitHubEvent(line);
           Optional.ofNullable(event).filter(Objects::nonNull)
               .filter(evt -> eventType.value().equals(evt.getType())).map(GitHubEvent::getRepo)
-              .map(Repo::getId)
-              .ifPresent(repoId -> {
+              .map(Repo::getId).ifPresent(repoId -> {
                 if (eventsMap.get(repoId) == null) {
                   eventsMap.put(repoId, new Vector<>(Arrays.asList(event)));
                 } else {
@@ -148,6 +161,8 @@ public class FileUtil {
     List<String> headers =
         Stream.of(CsvHeader.values()).map(CsvHeader::name).collect(Collectors.toList());
     headers.addAll(Stream.of(Metric.values()).map(Metric::name).collect(Collectors.toList()));
+    headers.addAll(
+        Stream.of(StatisticData.values()).map(StatisticData::name).collect(Collectors.toList()));
 
     try (CSVPrinter printer =
         new CSVPrinter(out, CSVFormat.DEFAULT.withHeader(headers.toArray(new String[0])))) {

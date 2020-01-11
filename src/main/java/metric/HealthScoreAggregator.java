@@ -22,7 +22,7 @@ public class HealthScoreAggregator implements Filter {
         ((HealthScoreContext) context).getHealthScores().values();
 
     // normalize scores
-    NormalizeUtil.normalize(healthScores, ((HealthScoreContext) context).getMetricGroup());
+    NormalizeUtil.normalize(healthScores, ((HealthScoreContext) context).getStrategy());
 
     // calculate final score
     aggregateHealScore(healthScores);

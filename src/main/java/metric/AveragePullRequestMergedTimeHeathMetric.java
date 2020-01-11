@@ -8,39 +8,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import constant.Constant;
-import enums.GitHubEventType;
 import enums.Metric;
+import enums.StatisticData;
 import model.GitHubEvent;
-import model.HealthScore;
 import model.Payload;
 import model.PullRequest;
+import util.DateTimeUtil;
 
 /**
- * Average time for a pull request to get merged If an issue has not yet merged in the search
+ * Average time for a pull request to get merged If an issue has not been merged yet in the search
  * period, it will be ignored in calculation
  */
 public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
 
   public AveragePullRequestMergedTimeHeathMetric() throws IOException {
-    super(Metric.average_pull_request_merge_time, GitHubEventType.PULL_REQUEST_EVENT);
-  }
-
-  /**
-   * @param entry
-   * @return
-   */
-  @Override
-  protected HealthScore calculateHealthScore(Map.Entry<Long, List<GitHubEvent>> entry) {
-    double score = calculateHealthScore(entry.getValue());
-
-    if (Constant.SKIP_SCORE == score) {
-      skippedRepoIds.add(entry.getKey()); // or return null? TODO
-    }
-    return buildHealthScore(entry.getKey(), score);
+    super(Metric.AVERAGE_PULL_REQUEST_MERGE_TIME);
   }
 
   /**
@@ -49,18 +36,24 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
    * @param List<GitHubEvent> odered ascending by issueCreatedAt
    * @return double
    */
-  private double calculateHealthScore(List<GitHubEvent> repoEvents) {
+  @Override
+  protected double calculateHealthScore(List<GitHubEvent> repoEvents) {
 
     ConcurrentMap<Long, List<GitHubEvent>> groupedByPullRequestId =
-
         repoEvents.parallelStream().collect(
             Collectors.groupingByConcurrent(event -> event.getPayload().getPullRequest().getId()));
 
     ConcurrentMap<Long, Long> timeGroupedByPullRequestId =
         groupedByPullRequestId.entrySet().parallelStream().collect(
-            Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateOpenTimeInMinutes));
+            Collectors.toConcurrentMap(entry -> entry.getKey(), this::calculateMergingTimeInSecond));
 
-    return calculateHealthScore(timeGroupedByPullRequestId.values());
+    Long repoId = getRepoId(repoEvents);
+
+    // update statistics
+    getRepoStatistics(repoId).put(StatisticData.NUM_OF_PULL_REQUESTS,
+        timeGroupedByPullRequestId.size());
+
+    return calculateHealthScore(timeGroupedByPullRequestId.values(), repoId);
   }
 
 
@@ -68,58 +61,67 @@ public class AveragePullRequestMergedTimeHeathMetric extends HealthMetric {
    * @param entry
    * @return
    */
-  private Long calculateOpenTimeInMinutes(Map.Entry<Long, List<GitHubEvent>> entry) {
+  private Long calculateMergingTimeInSecond(Map.Entry<Long, List<GitHubEvent>> entry) {
+
     final LocalDateTime openedAt = Optional.ofNullable(entry.getValue().get(0))
         .map(GitHubEvent::getPayload).map(Payload::getPullRequest).map(PullRequest::getCreatedAt)
-        .orElseThrow(() -> new IllegalStateException(String
-            .format("No created_at found for PullRequest: %d", entry.getKey())));
+        .orElseThrow(() -> new IllegalStateException(
+            String.format("No created_at found for PullRequest: %d", entry.getKey())));
 
     final LocalDateTime mergedAt = getMergedAt(entry.getValue());
 
     // the PR has not been merged yet
     if (mergedAt == null) {
-      return Long.valueOf(-1);
+      return Constant.SKIP_LONG_VALUE;
     }
 
     Duration duration = Duration.between(openedAt, mergedAt);
 
-    return duration.toMinutes();
+    return duration.getSeconds();
   }
 
   private LocalDateTime getMergedAt(List<GitHubEvent> events) {
 
     return events.parallelStream().map(GitHubEvent::getPayload).map(Payload::getPullRequest)
-        .map(PullRequest::getMergedAt).filter(Objects::nonNull).findAny()
-        .orElse(null);
+        .map(PullRequest::getMergedAt).filter(Objects::nonNull).findAny().orElse(null);
 
   }
 
   /**
-   * calculate health score for each project
+   * calculate health score = avgMergedTime / minMergedTime
+   * 
+   * @param repoId
    *
    * @return List<HealthScore> odered descending by score
    */
-  private double calculateHealthScore(Collection<Long> mergedTimes) {
+  private double calculateHealthScore(Collection<Long> mergedTimes, Long repoId) {
 
-    long sum = mergedTimes.parallelStream().mapToLong(Long::longValue)
-        .filter(n -> n >= 0)
-        .sum();
-    long count = mergedTimes.parallelStream().filter(n -> n >= 0).count();
+    List<Long> validMergedTimes = mergedTimes.stream().filter(DateTimeUtil::isValidTime)
+        .collect(Collectors.toCollection(Vector::new));
+
+    long sum = validMergedTimes.parallelStream().mapToLong(Long::longValue).sum();
+
+    long count = validMergedTimes.parallelStream().count();
 
     if (count == 0) {
       return Constant.SKIP_SCORE;
     }
 
-    Long avgMergedTime =
-        sum / count;
+    double avgMergedTime = (double) sum / count;
+
     Long minMergedTime =
-        mergedTimes.parallelStream().mapToLong(Long::longValue)
-            .filter(n -> n >= 0)
-            .min().getAsLong();
+        validMergedTimes.parallelStream().mapToLong(Long::longValue).min().getAsLong();
 
     if (minMergedTime == 0) {
       return Constant.SKIP_SCORE;
     }
+
+    // update statistic
+    getRepoStatistics(repoId).put(StatisticData.ISSUE_AVERAGE_MERGING_TIME_IN_SECOND,
+        avgMergedTime);
+    getRepoStatistics(repoId).put(StatisticData.ISSUE_MIN_MERGING_TIME_IN_SECOND,
+        minMergedTime);
+
     return (double) avgMergedTime / minMergedTime;
   }
 

@@ -2,53 +2,49 @@ package metric;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import enums.GitHubEventType;
+import constant.Constant;
 import enums.Metric;
+import enums.StatisticData;
 import lombok.extern.log4j.Log4j2;
 import model.Actor;
 import model.GitHubEvent;
-import model.HealthScore;
 
 /**
- * Ratio of commit per developers
+ * Ratio of commits per developers
  */
 @Log4j2
 public class AverageCommitPerDeveloperRatioHeathMetric extends HealthMetric {
 
   public AverageCommitPerDeveloperRatioHeathMetric() throws IOException {
-    super(Metric.average_commit_per_developer_ratio, GitHubEventType.PUSH_EVENT);
+    super(Metric.AVERAGE_COMMITS_PER_DEVELOPERS_RATIO);
   }
 
-
-  /**
-   * @param entry
-   * @return
-   */
   @Override
-  protected HealthScore calculateHealthScore(Entry<Long, List<GitHubEvent>> entry) {
-    log.debug("--start count");
+  protected double calculateHealthScore(List<GitHubEvent> repoEvents) {
+    final int numOfCommits = repoEvents.size();
 
-    HealthScore healthScore = HealthScore.commonBuilder(this.context.getMetricGroup())
-        .repoId(entry.getKey()).numOfCommit(entry.getValue().size())
-        .numOfDeveloper(countNumOfDeveloper(entry.getValue())).build();
+    final int numOfDevelopers = countNumOfDeveloper(repoEvents);
 
-    log.debug("--end count");
+    final long repoId = getRepoId(repoEvents);
 
-    double metricScore = 0.0;
-    if (healthScore.getNumOfDeveloper() == 0) {
-      skippedRepoIds.add(entry.getKey());
-      return healthScore;
-    } else {
-      metricScore = (double) healthScore.getNumOfCommit() / healthScore.getNumOfDeveloper();
+    // handle exception
+    if (numOfDevelopers == 0) {
+      log.warn("!! numOfDevelopers should not be 0. {}", repoEvents);
+
+      log.warn("========================== Skip this repo {} ==============================",
+          repoId);
+
+      return Constant.SKIP_SCORE;
     }
 
-    healthScore.getSingleMetricScores().put(this.metric, metricScore);
+    // update statistic data
+    getRepoStatistics(repoId).put(StatisticData.NUM_OF_COMMITS, numOfCommits);
+    getRepoStatistics(repoId).put(StatisticData.NUM_OF_DEVELOPERS, numOfDevelopers);
 
-    return healthScore;
+    return (double) numOfCommits / numOfDevelopers;
   }
 
   private int countNumOfDeveloper(List<GitHubEvent> events) {

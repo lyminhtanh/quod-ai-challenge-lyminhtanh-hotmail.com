@@ -2,36 +2,30 @@ package metric;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map.Entry;
 
-import enums.GitHubEventType;
 import enums.Metric;
+import enums.StatisticData;
 import model.GitHubEvent;
-import model.HealthScore;
 
 /**
- * Average number of commits (push) per day (to any branch) healthRatio =
- * total(PushEvent of project A)/total(PushEvent)
+ * Average number of commits (push) per day (to any branch) count of PushEvents of project A
  */
 
 public class AverageCommitHeathMetric extends HealthMetric {
 
   public AverageCommitHeathMetric() throws IOException {
-    super(Metric.average_commit, GitHubEventType.PUSH_EVENT);
+    super(Metric.AVERAGE_COMMIT);
   }
 
   @Override
-  protected HealthScore calculateHealthScore(Entry<Long, List<GitHubEvent>> entry) {
-    HealthScore healthScore =
-        HealthScore.commonBuilder(this.context.getMetricGroup()).repoId(entry.getKey())
-        .numOfCommit(entry.getValue().size()).build();
+  protected double calculateHealthScore(List<GitHubEvent> repoEvents) {
+    final long repoId = getRepoId(repoEvents);
 
-    healthScore.getSingleMetricScores().put(this.metric, (double) healthScore.getNumOfCommit());
+    int numOfCommits = repoEvents.size();
 
-    return healthScore;
+    // update statistic data
+    getRepoStatistics(repoId).put(StatisticData.NUM_OF_COMMITS, numOfCommits);
+
+    return numOfCommits;
   }
-
-
-
-
 }
