@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
@@ -45,8 +44,6 @@ public abstract class HealthMetric implements Command {
   protected ConcurrentMap<Long, ConcurrentMap<StatisticData, Number>> statisticDatas =
       new ConcurrentHashMap<>();
 
-  protected List<Long> skippedRepoIds;
-
   public HealthMetric(Metric metric) throws IOException {
     this.metric = metric;
   }
@@ -54,7 +51,6 @@ public abstract class HealthMetric implements Command {
   @Override
   public boolean execute(Context context) throws Exception {
     log.info("=====================START {} =========================", this.metric.name());
-    skippedRepoIds = new Vector<>();
 
     this.eventsByRepoId = getEvents(this.metric.getType());
     this.context = ((HealthScoreContext) context);
